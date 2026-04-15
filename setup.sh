@@ -17,7 +17,7 @@ conda activate 08-tracking
 # Install additional requirements
 if [[ "$CONDA_DEFAULT_ENV" == "08-tracking" ]]; then
     echo "Environment activated successfully for package installs"
-    pip install numpy "motile>=0.3" "traccuracy>=0.1.1" "geff==0.5.0" "trackastra" "motile-toolbox<0.4" "zarr<3" git+https://github.com/funkelab/motile_napari_plugin.git@aimbl#egg=motile_plugin matplotlib ipywidgets nbformat pandas ipykernel
+    pip install numpy "motile>=0.3" "traccuracy>=0.1.1" "geff>=1.1.3" "trackastra" "motile-tracker>=4.6,<5" "funtracks>=1.8,<2" "zarr<3" matplotlib ipywidgets nbformat pandas ipykernel
     python -m ipykernel install --user --name "08-tracking"
 else
     echo "Failed to activate environment for package installs. Dependencies not installed!"

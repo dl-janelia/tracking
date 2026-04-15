@@ -4,6 +4,8 @@
 /data
 data.zip
 .ipynb_checkpoints
+uv.lock
+
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
