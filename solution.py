@@ -93,10 +93,9 @@ import motile
 import zarr
 import geff
 import trackastra.model
-from motile_toolbox.candidate_graph import graph_to_nx
-from motile_toolbox.visualization.napari_utils import assign_tracklet_ids
-import motile_plugin.widgets as plugin_widgets
-from motile_plugin.backend.motile_run import MotileRun
+from motile_tracker.motile.backend import MotileRun, graph_to_nx
+from motile_tracker.data_views.views.tree_view.tree_widget import TreeWidget
+from motile_tracker.data_views.views_coordinator.tracks_viewer import TracksViewer
 import traccuracy
 from traccuracy.metrics import CTCMetrics, DivisionMetrics
 from traccuracy.matchers import IOUMatcher
@@ -155,19 +154,20 @@ viewer.add_labels(segmentation, name="seg")
 #
 
 # %%
-gt_tracks, metadata = geff.read_nx("data/breast_cancer_fluo.zarr/gt_tracks.geff")
+gt_tracks, metadata = geff.read("data/breast_cancer_fluo.zarr/gt_tracks.geff")
 print(f"The ground truth tracks have {gt_tracks.number_of_nodes()} nodes and {gt_tracks.number_of_edges()} edges")
 
 # %% [markdown]
-# Here we set up a napari widget for visualizing the tracking results. This is part of the motile napari plugin, not part of core napari.
+# Here we set up a napari widget for visualizing the tracking results. This is part of the motile tracker, not part of core napari.
 # If you get a napari error that the viewer window is closed, please re-run the previous visualization cell to re-open the viewer window.
 
 # %%
-widget = plugin_widgets.TreeWidget(viewer)
+widget = TreeWidget(viewer)
 viewer.window.add_dock_widget(widget, name="Lineage View", area="right")
+tracks_viewer = TracksViewer.get_instance(viewer)
 
 # %% [markdown]
-# Here we add a "MotileRun" to the napari tracking visualization widget (the "view_controller"). A MotileRun includes a name, a set of tracks, and a segmentation. The tracking visualization widget will add:
+# Here we add a "MotileRun" to the napari tracking visualization widget. A MotileRun includes a name, a graph, and optionally a segmentation. The tracking visualization widget will add:
 # - a Points layer with the points in the tracks
 # - a Tracks layer to display the track history as a "tail" behind the point in the current time frame
 # - a Labels layer, if a segmentation was provided
@@ -175,16 +175,19 @@ viewer.window.add_dock_widget(widget, name="Lineage View", area="right")
 #
 # These views are synchronized such that every element is colored by the track ID of the element. Clicking on a node in the Lineage View will navigate to that cell in the data, and vice versa.
 #
-# Hint - if your screen is too small, you can "pop out" the lineage tree view into a separate window using the icon that looks like two boxes in the top left of the lineage tree view. You can also close the tree view with the x just above it, and open it again from the menu bar: Plugins -> Motile -> Lineage View (then re-run the below cell to add the data to the lineage view).
+# Hint - if your screen is too small, you can "pop out" the lineage tree view into a separate window using the icon that looks like two boxes in the top left of the lineage tree view. You can also close the tree view with the x just above it, and open it again from the menu bar: Plugins -> Motile Tracker -> Lineage View (then re-run the below cell to add the data to the lineage view).
 
 # %%
-assign_tracklet_ids(gt_tracks)
 ground_truth_run = MotileRun(
+    graph=gt_tracks,
+    segmentation=None,
     run_name="ground_truth",
-    tracks=gt_tracks,
+    time_attr="t",
+    pos_attr=("x", "y"),
+    scale=[1, 1, 1],
 )
 
-widget.view_controller.update_napari_layers(ground_truth_run, time_attr="t", pos_attr=("x", "y"))
+tracks_viewer.update_tracks(ground_truth_run, "ground_truth")
 
 # %% [markdown]
 # ## Section 2 (Task 1) Build a candidate graph
@@ -502,50 +505,44 @@ print_graph_stats(gt_tracks, "gt tracks")
 # ## Section 4: Visualize the Result
 # Rather than just looking at printed statistics about our solution, let's visualize it in `napari`.
 #
-# Before we can create our MotileRun, we need to create an output segmentation from our solution. Our output segmentation differs from our input segmentation in two main ways:
-# 1. Not all candidate nodes will be selected in our solution graph. We need to filter the masks corresponding to the un-selected candidate detections out of the output segmentation.
-# 2. Segmentations will be relabeled so that the same cell will be the same label (and thus color) over time. Cells will still change label/color at division.
+# Before we can create our MotileRun, we need to create an output segmentation from our solution. Not all candidate nodes will be selected in our solution graph, so we need to filter the masks corresponding to the un-selected candidate detections out of the output segmentation. The motile tracker widget will handle coloring each cell by its track ID automatically.
 #
 # Note that bad tracking results at this point does not mean that you implemented anything wrong! We still need to customize our costs and constraints to the task before we can get good results. As long as your pipeline selects something, and you can kind of interepret why it is going wrong, that is all that is needed at this point.
 
 # %%
-def relabel_segmentation(
+def filter_segmentation(
     solution_nx_graph: nx.DiGraph,
     segmentation: np.ndarray,
 ) -> np.ndarray:
-    """Relabel a segmentation based on tracking results to get the output segmentation.
+    """Filter a segmentation to only include detections in the solution graph.
 
     Args:
         solution_nx_graph (nx.DiGraph): Networkx graph with the solution to use
-            for relabeling. Nodes not in graph will be removed from seg.
+            for filtering. Nodes not in graph will be removed from seg.
         segmentation (np.ndarray): Original segmentation with dimensions (t,y,x)
 
     Returns:
-        np.ndarray: Relabeled segmentation array where nodes in same track share same
-            id with shape (t,y,x)
+        np.ndarray: Filtered segmentation array with shape (t,y,x)
     """
-    assign_tracklet_ids(solution_nx_graph)
-    tracked_masks = np.zeros_like(segmentation)
-    for node, data in solution_nx_graph.nodes(data=True):
-        time_frame = solution_nx_graph.nodes[node]["t"]
-        previous_seg_id = node
-        track_id = solution_nx_graph.nodes[node]["track_id"]
-        previous_seg_mask = (
-            segmentation[time_frame] == previous_seg_id
-        )
-        tracked_masks[time_frame][previous_seg_mask] = track_id
-    return tracked_masks
+    solution_nodes = set(solution_nx_graph.nodes())
+    filtered = segmentation.copy()
+    for t in range(len(filtered)):
+        mask = np.isin(filtered[t], list(solution_nodes), invert=True)
+        filtered[t][mask] = 0
+    return filtered
 
-solution_seg = relabel_segmentation(solution_graph, segmentation)
+solution_seg = filter_segmentation(solution_graph, segmentation)
 
 # %%
 basic_run = MotileRun(
+    graph=solution_graph,
+    segmentation=solution_seg,
     run_name="basic_solution",
-    tracks=solution_graph,
-    output_segmentation=np.expand_dims(solution_seg, axis=1)  # need to add a dummy dimension to fit API
+    time_attr="t",
+    pos_attr=("x", "y"),
 )
 
-widget.view_controller.update_napari_layers(basic_run, time_attr="t", pos_attr=("x", "y"))
+tracks_viewer.update_tracks(basic_run, "basic_solution")
 
 # %% [markdown]
 # <div class="alert alert-block alert-warning"><h3>Question 2: Interpret your results based on visualization</h3>
@@ -632,12 +629,15 @@ def get_metrics(gt_graph, labels, run, results_df):
         segmentation=labels,
     )
 
+    pred_nx = run.graph.copy()
+    for node in pred_nx.nodes():
+        pred_nx.nodes[node]["label"] = node
     pred_graph = traccuracy.TrackingGraph(
-        graph=run.tracks.copy(),
+        graph=pred_nx,
         frame_key="t",
-        label_key="track_id",
+        label_key="label",
         location_keys=("x", "y"),
-        segmentation=np.squeeze(run.output_segmentation),
+        segmentation=run.segmentation,
     )
 
     results, _ = traccuracy.run_metrics(
@@ -707,13 +707,15 @@ def adapt_basic_optimization(cand_graph):
 
 def run_pipeline(cand_graph, run_name, results_df):
     solution_graph = adapt_basic_optimization(cand_graph)
-    solution_seg = relabel_segmentation(solution_graph, segmentation)
+    solution_seg = filter_segmentation(solution_graph, segmentation)
     run = MotileRun(
+        graph=solution_graph,
+        segmentation=solution_seg,
         run_name=run_name,
-        tracks=solution_graph,
-        output_segmentation=np.expand_dims(solution_seg, axis=1)  # need to add a dummy dimension to fit API
+        time_attr="t",
+        pos_attr=("x", "y"),
     )
-    widget.view_controller.update_napari_layers(run, time_attr="t", pos_attr=("x", "y"))
+    tracks_viewer.update_tracks(run, run_name)
     results_df = get_metrics(gt_tracks, gt_dets, run, results_df)
     return results_df
 
@@ -752,13 +754,15 @@ def adapt_basic_optimization(cand_graph):
 
 def run_pipeline(cand_graph, run_name, results_df):
     solution_graph = adapt_basic_optimization(cand_graph)
-    solution_seg = relabel_segmentation(solution_graph, segmentation)
+    solution_seg = filter_segmentation(solution_graph, segmentation)
     run = MotileRun(
+        graph=solution_graph,
+        segmentation=solution_seg,
         run_name=run_name,
-        tracks=solution_graph,
-        output_segmentation=np.expand_dims(solution_seg, axis=1)  # need to add a dummy dimension to fit API
+        time_attr="t",
+        pos_attr=("x", "y"),
     )
-    widget.view_controller.update_napari_layers(run, time_attr="t", pos_attr=("x", "y"))
+    tracks_viewer.update_tracks(run, run_name)
     results_df = get_metrics(gt_tracks, gt_dets, run, results_df)
     return results_df
 
@@ -851,13 +855,15 @@ def solve_drift_optimization(cand_graph):
 
 def run_pipeline(cand_graph, run_name, results_df):
     solution_graph = solve_drift_optimization(cand_graph)
-    solution_seg = relabel_segmentation(solution_graph, segmentation)
+    solution_seg = filter_segmentation(solution_graph, segmentation)
     run = MotileRun(
+        graph=solution_graph,
+        segmentation=solution_seg,
         run_name=run_name,
-        tracks=solution_graph,
-        output_segmentation=np.expand_dims(solution_seg, axis=1)  # need to add a dummy dimension to fit API
+        time_attr="t",
+        pos_attr=("x", "y"),
     )
-    widget.view_controller.update_napari_layers(run, time_attr="t", pos_attr=("x", "y"))
+    tracks_viewer.update_tracks(run, run_name)
     results_df = get_metrics(gt_tracks, gt_dets, run, results_df)
     return results_df
 
@@ -898,13 +904,15 @@ def solve_drift_optimization(cand_graph):
 
 def run_pipeline(cand_graph, run_name, results_df):
     solution_graph = solve_drift_optimization(cand_graph)
-    solution_seg = relabel_segmentation(solution_graph, segmentation)
+    solution_seg = filter_segmentation(solution_graph, segmentation)
     run = MotileRun(
+        graph=solution_graph,
+        segmentation=solution_seg,
         run_name=run_name,
-        tracks=solution_graph,
-        output_segmentation=np.expand_dims(solution_seg, axis=1)  # need to add a dummy dimension to fit API
+        time_attr="t",
+        pos_attr=("x", "y"),
     )
-    widget.view_controller.update_napari_layers(run, time_attr="t", pos_attr=("x", "y"))
+    tracks_viewer.update_tracks(run, run_name)
     results_df = get_metrics(gt_tracks, gt_dets, run, results_df)
     return results_df
 
@@ -1005,13 +1013,15 @@ def solve_trackastra_optimization(cand_graph):
 
 def run_pipeline(cand_graph, run_name, results_df):
     solution_graph = solve_trackastra_optimization(cand_graph)
-    solution_seg = relabel_segmentation(solution_graph, segmentation)
+    solution_seg = filter_segmentation(solution_graph, segmentation)
     run = MotileRun(
+        graph=solution_graph,
+        segmentation=solution_seg,
         run_name=run_name,
-        tracks=solution_graph,
-        output_segmentation=np.expand_dims(solution_seg, axis=1)  # need to add a dummy dimension to fit API
+        time_attr="t",
+        pos_attr=("x", "y"),
     )
-    widget.view_controller.update_napari_layers(run, time_attr="t", pos_attr=("x", "y"))
+    tracks_viewer.update_tracks(run, run_name)
     results_df = get_metrics(gt_tracks, gt_dets, run, results_df)
     return results_df
 
@@ -1055,13 +1065,15 @@ def solve_trackastra_optimization(cand_graph):
 
 def run_pipeline(cand_graph, run_name, results_df):
     solution_graph = solve_trackastra_optimization(cand_graph)
-    solution_seg = relabel_segmentation(solution_graph, segmentation)
+    solution_seg = filter_segmentation(solution_graph, segmentation)
     run = MotileRun(
+        graph=solution_graph,
+        segmentation=solution_seg,
         run_name=run_name,
-        tracks=solution_graph,
-        output_segmentation=np.expand_dims(solution_seg, axis=1)  # need to add a dummy dimension to fit API
+        time_attr="t",
+        pos_attr=("x", "y"),
     )
-    widget.view_controller.update_napari_layers(run, time_attr="t", pos_attr=("x", "y"))
+    tracks_viewer.update_tracks(run, run_name)
     results_df = get_metrics(gt_tracks, gt_dets, run, results_df)
     return results_df
 
