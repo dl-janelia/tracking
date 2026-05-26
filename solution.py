@@ -16,10 +16,13 @@
 # ---
 
 # %% [markdown]
-# # Exercise 8: Tracking-by-detection with an integer linear program (ILP)
+# # Exercise 8
+# ## Part 2: Tracking-by-detection with an integer linear program (ILP)
 #
 # Objective:
 # - Write a pipeline that takes in cell detections and links them across time to obtain lineage trees
+# - Train a small transformer-based model to predict linking scores for pairs of cells in adjacent time points.
+# - Use a pre-trained DL model, `trackastra`, to predict linking scores.  
 #
 # Methods/Tools:
 #
@@ -49,7 +52,7 @@
 # ### YOUR CODE HERE ###
 # ```
 #
-# This notebook was originally written by Benjamin Gallusser, and was edited for 2024 and 2025 by Caroline Malin-Mayor.
+# This notebook was originally written by Benjamin Gallusser, and was edited for 2024 and 2025 by Caroline Malin-Mayor and in 2026 by Albert Dominguez Mantes.
 
 # %% [markdown]
 # ## Section 0: Setup
@@ -190,7 +193,7 @@ ground_truth_run = MotileRun(
 tracks_viewer.update_tracks(ground_truth_run, "ground_truth")
 
 # %% [markdown]
-# ## Section 2 (Task 1) Build a candidate graph
+# ## Section 2: Build a candidate graph
 #
 # To set up our tracking problem, we will create a "candidate graph" - a DiGraph that contains all possible detections (graph nodes) and links (graph edges) between them.
 #
@@ -200,47 +203,18 @@ tracks_viewer.update_tracks(ground_truth_run, "ground_truth")
 # Each node in the candidate graph represents one segmentation, and each edge represents a potential link between segmentations. This candidate graph will also contain features that will be used in the optimization task, such as position on nodes and, later, customized scores on edges.
 
 
-# %% [markdown]
-# <div class="alert alert-block alert-info"><h3>Task 1: Extract candidate nodes from the predicted segmentations</h3>
-# First we need to turn each segmentation into a node in a <a href=https://networkx.org/documentation/stable/reference/classes/digraph.html>`networkx.DiGraph`</a>.
-# Use <a href=https://scikit-image.org/docs/stable/api/skimage.measure.html#skimage.measure.regionprops>skimage.measure.regionprops</a> to extract properties from each segmentation, and create a candidate graph with nodes only. Check out this networkx <a href=https://networkx.org/documentation/stable/tutorial.html>tutorial</a> for examples of creating a networkx graph.
+# We turn each segmentation into a node in a [`networkx.DiGraph`](https://networkx.org/documentation/stable/reference/classes/digraph.html), using [`skimage.measure.regionprops`](https://scikit-image.org/docs/stable/api/skimage.measure.html#skimage.measure.regionprops) to extract properties from each segmented region. The function below (provided) builds a candidate graph with **nodes only**, where:
 #
-# Here are the requirements for the output graph:
 # <ol>
 #     <li>Each detection (unique label id) in the segmentation becomes a node in the graph</li>
 #     <li>The node id is the label of the detection</li>
 #     <li>Each node has an integer "t" attribute, based on the index into the first dimension of the input segmentation array</li>
 #     <li>Each node has float "x" and "y" attributes containing the "x" and "y" values from the centroid of the detection region</li>
-#     <li>Each node has a "score" attribute containing the probability score output from StarDist. The probability map is at half resolution, so you will need to divide the centroid by 2 before indexing into the probability score.</li>
+#     <li>Each node has a "score" attribute containing the probability score output from StarDist. The probability map is at half resolution, so the centroid is divided by 2 before indexing into the probability score.</li>
 #     <li>The graph has no edges (yet!)</li>
 # </ol>
-# </div>
 
-# %% tags=["task"]
-def nodes_from_segmentation(segmentation: np.ndarray) -> nx.DiGraph:
-    """Extract candidate nodes from a segmentation.
-
-    Args:
-        segmentation (np.ndarray): A numpy array with integer labels and dimensions
-            (t, y, x).
-
-    Returns:
-        nx.DiGraph: A candidate graph with only nodes.
-    """
-    cand_graph = nx.DiGraph()
-    print("Extracting nodes from segmentation")
-    for t in tqdm(range(len(segmentation))):
-        seg_frame = segmentation[t]
-        props = skimage.measure.regionprops(seg_frame)
-        for regionprop in props:
-            ### YOUR CODE HERE ###
-
-    return cand_graph
-
-cand_graph = nodes_from_segmentation(segmentation)
-
-
-# %% tags=["solution"]
+# %%
 def nodes_from_segmentation(segmentation: np.ndarray) -> nx.DiGraph:
     """Extract candidate nodes from a segmentation.
 
@@ -273,7 +247,7 @@ def nodes_from_segmentation(segmentation: np.ndarray) -> nx.DiGraph:
 cand_graph = nodes_from_segmentation(segmentation)
 
 # %%
-# run this cell to test your implementation of the candidate graph
+# run this cell to test the implementation of the candidate graph
 assert cand_graph.number_of_nodes() == 6123, f"Found {cand_graph.number_of_nodes()} nodes, expected 6123"
 assert cand_graph.number_of_edges() == 0, f"Found {cand_graph.number_of_edges()} edges, expected 0"
 for node, data in cand_graph.nodes(data=True):
@@ -286,7 +260,7 @@ for node, data in cand_graph.nodes(data=True):
     assert type(data["y"]) == float, f"'y' attribute has type {type(data['y'])}, expected 'float'"
     assert "score" in data, f"'score' attribute missing for node {node}"
     assert type(data["score"]) == float, f"'score' attribute has type {type(data['score'])}, expected 'float'"
-print("Your candidate graph passed all the tests!")
+print("The candidate graph passed all the tests!")
 
 # %% [markdown]
 # We can visualize our candidate points using the napari Points layer. You should see one point in the center of each segmentation when we display it using the below cell.
@@ -368,7 +342,7 @@ def add_cand_edges(
 add_cand_edges(cand_graph, max_edge_distance=50)
 
 # %% [markdown]
-# Visualizing the candidate edges in napari is, unfortunately, not yet possible. However, we can print out the number of candidate nodes and edges, and compare it to the ground truth nodes and edgesedges. We should see that we have a few more candidate nodes than ground truth (due to false positive detections) and many more candidate edges than ground truth - our next step will be to use optimization to pick a subset of the candidate nodes and edges to generate our solution tracks.
+# Visualizing the candidate edges in napari is, unfortunately, not yet possible. However, we can print out the number of candidate nodes and edges, and compare it to the ground truth nodes and edges. We should see that we have a few more candidate nodes than ground truth (due to false positive detections) and many more candidate edges than ground truth - our next step will be to use optimization to pick a subset of the candidate nodes and edges to generate our solution tracks.
 
 # %%
 print(f"Our candidate graph has {cand_graph.number_of_nodes()} nodes and {cand_graph.number_of_edges()} edges")
@@ -383,7 +357,7 @@ print(f"Our ground truth track graph has {gt_tracks.number_of_nodes()} nodes and
 # </div>
 
 # %% [markdown]
-# ## Section 3 (Task 2): Set up the tracking optimization problem
+# ## Section 3 (Task 1): Set up the tracking optimization problem
 
 # %% [markdown]
 # As hinted earlier, our goal is to prune the candidate graph. More formally we want to find a graph $\tilde{G}=(\tilde{V}, \tilde{E})$ whose vertices $\tilde{V}$ are a subset of the candidate graph vertices $V$ and whose edges $\tilde{E}$ are a subset of the candidate graph edges $E$.
@@ -397,7 +371,7 @@ print(f"Our ground truth track graph has {gt_tracks.number_of_nodes()} nodes and
 # `motile` ([docs here](https://funkelab.github.io/motile/)), makes it easy to link with an ILP in python by implementing common linking constraints and costs.
 
 # %% [markdown]
-# <div class="alert alert-block alert-info"><h3>Task 2: Set up a basic motile tracking pipeline</h3>
+# <div class="alert alert-block alert-info"><h3>Task 1: Set up a basic motile tracking pipeline</h3>
 # <p>Use the motile <a href=https://funkelab.github.io/motile/quickstart.html#sec-quickstart>quickstart</a> example to set up a basic motile pipeline for our task.
 #
 # Here are some key similarities and differences between the quickstart and our task:
@@ -473,13 +447,10 @@ def print_graph_stats(graph, name):
 # %% [markdown]
 # Here we actually run the optimization, and compare the found solution to the ground truth.
 #
-# <div class="alert alert-block alert-warning"><h4>Gurobi license error</h4>
-# Please ignore the warning `Could not create Gurobi backend ...`.
+# <div class="alert alert-block alert-info"><h4>On ILP solvers</h4>
+# Under the hood, `motile` explicilty formulates tracking as an ILP. Solving ILPs exactly is, generally, NP-hard (i.e. very hard). However mature solvers do a remarkable job in practice using several heuristics (branch-and-bound/cut, LP relaxations and cutting planes).
 #
-#
-# Our integer linear program (ILP) tries to use the proprietary solver Gurobi. You probably don't have a license, in which case the ILP will fall back to the open source solver SCIP.
-#
-# SCIP is slower than Gurobi - to deal with this, we add a 120 second timeout to the solve call, which should approximate the truly optimal solution. For larger problems, or cases where getting the most optimal solution is crucial, one could increase the timeout or get a Gurobi license (recommended).
+# `motile` supports different ILP solvers. A widely used one is **Gurobi**, a state-of-the-art commercial solver (free for academic use, but requires a license). **SCIP** is a popular open-source alternative (and the one you are likely using unless you have a Gurobi license). Gurobi is generally faster on larger problems, but for the small graphs in this exercise SCIP is more than enough. We add a 120s timeout to the solve call so it returns a near-optimal solution even when the search tree gets large.
 # </div>
 
 # %%
@@ -558,7 +529,7 @@ tracks_viewer.update_tracks(basic_run, "basic_solution")
 # </div>
 
 # %% [markdown]
-# ## Section 5 (Task 3): Evaluation Metrics
+# ## Section 5 (Task 2): Evaluation Metrics
 #
 # We were able to understand via visualizing the predicted tracks on the images that the basic solution is far from perfect for this problem. Additionally, we would also like to quantify this. We will use the package [`traccuracy`](https://traccuracy.readthedocs.io/en/latest/) to learn about and compute cell tracking metrics. While we looked at the basic documentation together during the checkpoint, take some time now to do a deeper dive into the matchers and metrics available, considering which metrics you might want to focus on for different biological analyses.
 
@@ -676,7 +647,7 @@ results_df
 #
 
 # %% [markdown]
-# <div class="alert alert-block alert-info"><h3>Task 3 (Optional): Adapt the above code to use your preferred matchers and metrics</h3>
+# <div class="alert alert-block alert-info"><h3>Task 2 (Optional): Adapt the above code to use your preferred matchers and metrics</h3>
 # <p>If there are additional metrics you found interesting from the documentation, you can try to add them now! The <a href=https://traccuracy.readthedocs.io/en/latest/metrics/ctc.html#ctc-bio-metrics>CTC Bio metrics</a> are an easy option to add, since they require the same matching we are already doing. You can also vary the IOUThreshold and see how it affects the scores reported. If you want a challenge, you can try using a different <a href=https://traccuracy.readthedocs.io/en/latest/matchers/matchers.html>matcher</a> or adding the <a href=https://traccuracy.readthedocs.io/en/latest/metrics/track_overlap.html>TrackOverlap</a> or <a href=https://traccuracy.readthedocs.io/en/latest/metrics/chota.html>CHOTA</a> metrics.</p>
 # </div>
 
@@ -771,9 +742,9 @@ results_df
 
 
 # %% [markdown]
-# ## Section 6 (Task 4): Incorporating prior knowledge
+# ## Section 6 (Task 3): Incorporating prior knowledge
 #
-# There 3 main ways to encode prior knowledge about your task into the motile tracking pipeline.
+# There are 3 main ways to encode prior knowledge about your task into the motile tracking pipeline.
 # 1. Add an attribute to the candidate graph and incorporate it with an existing cost
 # 2. Change the structure of the candidate graph
 # 3. Add a new type of cost or constraint
@@ -788,30 +759,24 @@ results_df
 #
 
 # %% [markdown]
-# <div class="alert alert-block alert-info"><h3>Task 4a: Add a drift distance attribute</h3>
-# <p> For this task, we need to determine the "expected" amount of motion, then add an attribute to our candidate edges that represents distance from the expected motion direction. Look at the dataset in `napari` and see how much the cells move on average, and in which direction, to get the expected "drift" quantity. The average edge direction in the ground truth annotations could also be used to verify the drift distance, but since we are evaluating on this dataset as well, that could be considered "cheating."</p>
-# <p>Notes on the networkx API: An edge with an id (0, 1) indicates that it connects nodes 0 and 1. You can access the attributes of those nodes using cand_graph.nodes[0] and cand_graph.nodes[1]. When we added candidate nodes to the graph earlier, we gave each node the properties x, y, and score. Checkout the networkx <a href=https://networkx.org/documentation/stable/tutorial.html#adding-attributes-to-graphs-nodes-and-edges>tutorial</a> if you need some examples of how to manipulate networkx graphs.
-# </p>
+# <div class="alert alert-block alert-info"><h3>Task 3a: Estimate the expected drift</h3>
+# <p>We will penalize motion based on what we <em>expect</em> rather than raw Euclidean distance. First we need the "expected" amount of motion. Look at the dataset in `napari` and see how much the cells move on average, and in which direction, to estimate the expected per-frame "drift". The average edge direction in the ground truth annotations could also be used to verify the drift, but since we are evaluating on this dataset as well, that could be considered "cheating."</p>
+# <p>Fill in <code>x_drift</code> and <code>y_drift</code> below (in pixel units). Recall that "x" is the first spatial axis (image row / vertical) and "y" is the second (image column / horizontal), matching how we created the nodes above. We then provide a function that uses your drift to add a <code>drift_dist</code> attribute to each candidate edge.</p>
 # </div>
 
 # %% tags=["task"]
+# TASK: estimate the expected per-frame drift (in pixels). "x" is the first
+# spatial axis (row / vertical), "y" the second (column / horizontal).
 x_drift = ...  ### YOUR CODE HERE ###
 y_drift = ...  ### YOUR CODE HERE ###
-drift = np.array([y_drift, x_drift])
-
-def add_drift_dist_attr(cand_graph, drift):
-    for edge in cand_graph.edges():
-        ### YOUR CODE HERE ###
-        # get the location of the endpoints of the edge
-        # then compute the distance between the expected movement and the actual movement
-        # and save it in the "drift_dist" attribute (below)
-        cand_graph.edges[edge]["drift_dist"] = drift_dist
-
-add_drift_dist_attr(cand_graph, drift)
+drift = np.array([x_drift, y_drift])
 
 # %% tags=["solution"]
-drift = np.array([-10, 0])
+x_drift = -10
+y_drift = 0
+drift = np.array([x_drift, y_drift])
 
+# %%
 def add_drift_dist_attr(cand_graph, drift):
     for edge in cand_graph.edges():
         source, target = edge
@@ -827,8 +792,8 @@ add_drift_dist_attr(cand_graph, drift)
 
 
 # %% [markdown]
-# <div class="alert alert-block alert-info"><h3>Task 4b: Add a drift distance attribute</h3>
-# <p> Now, we set up yet another solving pipeline. This time, we will replace our EdgeDistance
+# <div class="alert alert-block alert-info"><h3>Task 3b: Solve with the drift distance cost</h3>
+# <p> Now, we set up yet another solving pipeline. Same as before, but this time we will replace our EdgeDistance
 # cost with an EdgeSelection cost using our new "drift_dist" attribute. The weight should be positive, since a higher distance from the expected drift should cost more, similar to our prior EdgeDistance cost. Also similarly, we need a negative constant to make sure that the overall cost of selecting tracks is negative.</p>
 # </div>
 
@@ -930,9 +895,476 @@ results_df
 # </div>
 
 # %% [markdown]
-# ## Section 7 (Task 5) - Incorporating Trackastra Scores
+# ## Section 7 (Task 4): Tracking with a custom transformer
 #
-# [Trackastra](https://www.ecva.net/papers/eccv_2024/papers_ECCV/papers/09819.pdf) is a transformer-based method for cell tracking. The method trains a transformer to predict an association score for each possible edge in the candidate graph, and then uses that score combined with distance to perform linking. The [trackastra package](https://github.com/weigertlab/trackastra) has published a general 2D model trained on a variety of datasets, which we will use to predict edge scores for our candidate graph. We will then incorporate the scores into our ILP in a similar fashion to our hand-crafted drift distance.
+# So far our edge costs have been hand-crafted: Euclidean distance, then distance from an expected drift. But predicting these edge costs, i.e. which detections belong together, can also be learned using a neural network. This is the core idea behind [trackastra](https://www.ecva.net/papers/eccv_2024/papers_ECCV/papers/09819.pdf): a transformer predicts an association score for each candidate edge, and those scores are then fed into a linker (here, our ILP). A main benefit of doing this is making it "easier" for the ILP solver, as a lot of the association workload can be alleviated from the ILP is the "edge scorer" model is well-performing. 
+#
+# In this section we will implement the core idea of trackastra, predicting edge scores with a transformer, by reusing the `TransformerBlock` you implemented in the previous part. We will then finalize by comparing it against the real `trackastra` model, which has specific architecture design choices to aid the task and was pre-trained on many different datasets.
+
+
+# %% [markdown]
+# Let's start working on our tracking transformer. Recall from the previous part that self-attention treats its input as a set, with no inherent order - a perfect fit here, since the detections in a frame have no natural ordering. For each pair of adjacent frames $(t, t+1)$ we treat the union of their detections as a set of tokens, let a transformer give each detection *context* about its neighbors, and then score every candidate edge between the two frames with a small pairwise head. Each frame pair becomes one training example, which we will package up as a `torch.utils.data.Dataset` and feed to the model one pair at a time.
+#
+# Unlike the sorted-sequence task, there is no sequence index to encode. Instead, a detection's "position" is its location in spacetime: we encode the three coordinates $(t, x, y)$, where $t$ is the frame index and $x,y$ spatial position, with a sinusoidal positional encoding (the continuous analogue of the one you built in the previous part) and then add it to an embedding of the detection's content features (in this case, we're simply going to keep using the StarDist score). The frame index `t` is encoded as `0` or `1` within the pair, so the same encoding is reused for every frame pair, making the model effectively translation-invariant in time (given the model will see two frames at a time, we only care about which one comes first).
+
+# %%
+import torch
+import torch.nn as nn
+
+torch.manual_seed(0)
+device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+print(f"Using device: {device}")
+
+# %% [markdown]
+# First, the transformer block. In the cell below you'll find exactly the `TransformerBlock` you built during the transformer exercise.
+
+# %%
+class TransformerBlock(nn.Module):
+    def __init__(self, d_model: int, num_heads: int, d_ff: int):
+        """A single transformer encoder block.
+
+        Args:
+            d_model: Dimension of the input embeddings.
+            num_heads: Number of attention heads.
+            d_ff: Hidden dimension of the feed-forward network.
+        """
+        super().__init__()
+        self.ln1 = nn.LayerNorm(d_model)
+        self.mha = nn.MultiheadAttention(d_model, num_heads, batch_first=True)
+        self.ln2 = nn.LayerNorm(d_model)
+        self.ffn = nn.Sequential(
+            nn.Linear(d_model, d_ff),
+            nn.GELU(),
+            nn.Linear(d_ff, d_model),
+        )
+
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        """Apply the transformer block.
+
+        Args:
+            x: Input tensor, shape (B, N, D)
+
+        Returns:
+            Output tensor, shape (B, N, D)
+        """
+        x_norm = self.ln1(x)
+        attn_out, _ = self.mha(x_norm, x_norm, x_norm)
+        x = x + attn_out
+
+        x_norm = self.ln2(x)
+        ff_out = self.ffn(x_norm)
+        x = x + ff_out
+        return x
+
+# %% [markdown]
+# ### Building the training dataset
+#
+# To train the model in a supervised manner, we need a label for each candidate edge: is it a true link or not? We can retrieve this from the ground truth graph. Since the ground truth detections are points that do not share IDs with our segmentation-based candidate nodes, we first need to match each candidate node to the nearest ground truth node in the same frame. A candidate edge is then a positive example if both of its endpoints match ground truth nodes that are connected by a ground truth edge.
+#
+
+# %%
+from scipy.spatial import KDTree
+
+def match_gt_to_candidates(cand_graph, gt_tracks, max_dist=15.0):
+    """
+    Match each candidate node to the nearest ground-truth node in the same
+    frame (within max_dist pixels). Returns {cand_node_id: gt_node_id}.
+    """
+    cand_by_frame = _compute_node_frame_dict(cand_graph)
+    gt_by_frame = _compute_node_frame_dict(gt_tracks)
+    matches = {}
+    for t, cand_ids in cand_by_frame.items():
+        if t not in gt_by_frame:
+            continue
+        gt_ids = gt_by_frame[t]
+        gt_pos = np.array([[gt_tracks.nodes[n]["x"], gt_tracks.nodes[n]["y"]] for n in gt_ids])
+        cand_pos = np.array([[cand_graph.nodes[n]["x"], cand_graph.nodes[n]["y"]] for n in cand_ids])
+        dists, idxs = KDTree(gt_pos).query(cand_pos, distance_upper_bound=max_dist)
+        for cand_id, dist, idx in zip(cand_ids, dists, idxs):
+            if np.isfinite(dist) and idx < len(gt_ids):
+                matches[cand_id] = gt_ids[idx]
+    return matches
+
+# %% [markdown]
+# Let's proceed. For each detection we need to keep differnt things: first, the $(t, x, y$ coordinates, which we will use for the positional encoding, as well as a single node feature, the StarDist `score`. Note that all spatial and temporal information goes through the positional encoding: the only thing the per-token embedding sees is "how confident is StarDist that this is a cell?".
+# 
+# Below you'll find a `FramePairDataset` which, given the candidate graph, turns each adjacent frame pair into tensors ready to be consumed by the model/training/evaluation code. Each frame pair has a different number of detections/edges, so we will stick to using a `DataLoader` with `batch_size=1` to avoid padding/masking and making our lifes a bit easier.
+
+# %%
+from torch.utils.data import DataLoader, Dataset, Subset
+
+class FramePairDataset(Dataset):
+    """Dataset storing adjacent frame pairs extracted from a candidate graph.
+    """
+
+    def __init__(self, cand_graph, gt_match, gt_tracks):
+        """
+        Constructor
+
+        Args:
+            cand_graph: Candidate graph (NetworkX) with t, x, y, score on nodes.
+            gt_match: {cand_node_id: gt_node_id} dictionary mapping the candidate graph nodes to the GT tracks (`match_gt_to_candidates` results).
+            gt_tracks: Ground-truth track graph used to label candidate edges with `1` (real association) or `0` (no association).
+        """
+        nodes_by_frame = _compute_node_frame_dict(cand_graph)
+        self.samples: list[dict] = []
+        for t in sorted(nodes_by_frame.keys()):
+            if t + 1 not in nodes_by_frame:
+                continue
+            ids_t, ids_t1 = nodes_by_frame[t], nodes_by_frame[t + 1]
+            node_ids = ids_t + ids_t1
+            idx_of = {n: i for i, n in enumerate(node_ids)}
+
+            coords, feats = [], []
+            for n in node_ids:
+                d = cand_graph.nodes[n]
+                t_rel = 0.0 if d["t"] == t else 1.0
+                coords.append([t_rel, d["x"], d["y"]])
+                feats.append([d["score"]])
+
+            edge_index, labels, edge_keys = [], [], []
+            for u in ids_t:
+                for v in cand_graph.successors(u):
+                    edge_index.append([idx_of[u], idx_of[v]])
+                    edge_keys.append((u, v))
+                    is_link = (
+                        u in gt_match
+                        and v in gt_match
+                        and gt_tracks.has_edge(gt_match[u], gt_match[v])
+                    )
+                    labels.append(1.0 if is_link else 0.0)
+
+            if not edge_index:
+                continue
+            self.samples.append(
+                {
+                    "coords": torch.tensor(coords, dtype=torch.float32),
+                    "feats": torch.tensor(feats, dtype=torch.float32),
+                    "edge_index": torch.tensor(edge_index, dtype=torch.long),
+                    "labels": torch.tensor(labels, dtype=torch.float32),
+                    "edge_keys": edge_keys,
+                }
+            )
+
+    def __len__(self) -> int:
+        return len(self.samples)
+
+    def __getitem__(self, idx: int) -> dict:
+        """
+        Returns a dictionary with the following keys:
+            `coords`: Tensor of shape (N, 3) with (t_rel, x, y), t_rel in {0, 1}.
+            `feats`: Tensor of shape (N, 1) with the StarDist score per detection.
+            `edge_index`: Long tensor of shape (E, 2) with (source, target) indices into the N detections.
+            `labels`: Tensor of shape (E,), 1.0 if the edge matches a GT link else 0.0.
+            `edge_keys`: List of length E with (u, v) candidate-node id tuples.
+        """
+        return self.samples[idx]
+
+
+
+gt_match = match_gt_to_candidates(cand_graph, gt_tracks, max_dist=15.0)
+dataset = FramePairDataset(cand_graph, gt_match, gt_tracks)
+n_edges = sum(len(ex["labels"]) for ex in dataset)
+n_pos = int(sum(ex["labels"].sum().item() for ex in dataset))
+print(f"{len(dataset)} frame pairs, {n_edges} candidate edges, {n_pos} positive (true) links")
+
+# %% [markdown]
+# ### Positional encoding for spatio-temporal coordinates
+#
+# In the transformer exercise you added a sinusoidal positional encoding indexed by an integer sequence position. 
+# Here each token has not one index, but three coordinates:
+# 1) the relative frame index `t` (`0` or `1` within the pair)
+# 2,3) detection centroids `(x, y)`.
+# 
+# Similarly to before, we now map each coordinate to `d_model / 3` sine/cosine features. The three are then concatenated into a `d_model` vector. As before, this encoding is added to the token embedding so the transformer has information of where each detection is in time and space.
+
+# %%
+class CoordinateEncoding(nn.Module):
+    """Fixed sinusoidal positional encoding for continuous (t, x, y) coordinates."""
+
+    def __init__(self, d_model: int):
+        super().__init__()
+        assert d_model % 6 == 0, "d_model must be divisible by 6 (3 coords x sin/cos)"
+        frac = d_model // 6  # sin + cos per coordinate -> d_model / 3 dims per coordinate
+        freqs = torch.exp(torch.arange(frac).float() * (-np.log(10000.0) / frac))
+        self.register_buffer("freqs", freqs)
+
+    def forward(self, coords: torch.Tensor) -> torch.Tensor:
+        """coords: (N, 3) (t, x, y) coordinates -> (N, d_model)."""
+        encs = []
+        for c in range(coords.shape[1]):
+            args = coords[:, c : c + 1] * self.freqs  # (N, d_model/6)
+            encs.append(torch.cat([torch.sin(args), torch.cos(args)], dim=-1))  # (N, d_model/3)
+        return torch.cat(encs, dim=-1)  # (N, d_model)
+
+# %% [markdown]
+# <div class="alert alert-block alert-info"><h3>Task 4: Build the edge-scoring transformer</h3>
+# <p>Implement <code>EdgeScoringTransformer</code>. The model should:</p>
+# <ol>
+#   <li>Embed the per-detection content features into <code>d_model</code> with a single <code>nn.Linear</code>, and add the positional encoding of the coordinates (use the provided <code>CoordinateEncoding</code>).</li>
+#   <li>Contextualize the detections with a stack of <code>num_layers</code> <code>TransformerBlock</code>s.</li>
+#   <li>Score each candidate edge with a small head: concatenate the (contextualized) source and target embeddings and pass them through <code>Linear(2*d_model, d_ff) -> GELU -> Linear(d_ff, 1)</code>.</li>
+# </ol>
+# <p>The <code>forward</code> takes the content features <code>(N, content_features)</code>, the coordinates <code>coords</code> <code>(N, 3)</code> (t, x, y), and <code>edge_index</code> <code>(E, 2)</code> (source/target indices), and returns one logit per edge, shape <code>(E,)</code>.</p>
+# </div>
+
+# %% tags=["task"]
+class EdgeScoringTransformer(nn.Module):
+    def __init__(
+        self,
+        content_features: int = 1,
+        d_model: int = 96,
+        num_heads: int = 4,
+        num_layers: int = 2,
+        d_ff: int = 256,
+    ):
+        super().__init__()
+        # a) self.embed: a single linear layer mapping the input dimension to `d_model`
+        # b) self.pos_enc: positional encoding class defined above
+        # c) self.blocks: a ModuleList containing `num_layers`` transformer blocks
+        # d) self.edge_head: a 2 linear-layer head. The 1st layer should output a `d_ff`-dimensional vector. Remember to place an appropriate activation function between them.
+        ### YOUR CODE HERE ###
+
+    def forward(
+        self, feats: torch.Tensor, coords: torch.Tensor, edge_index: torch.Tensor
+    ) -> torch.Tensor:
+        """Score candidate edges.
+
+        Args:
+            feats: Content features for one frame pair, shape (N, content_features).
+            coords: (t, x, y) coordinates, shape (N, 3).
+            edge_index: Candidate edges as (source, target) indices, shape (E, 2).
+
+        Returns:
+            One logit per candidate edge, shape (E,).
+        """
+        # 1. embed features, add the positional encoding of coords and add a dummy batch dimension
+        # 2. pass through each transformer block
+        # 3. remove the batch dimension
+        # 4. gather source/target embeddings by using the edge_index
+        # 5. concatenate [h_source, h_target] and apply the edge head to get the logits
+
+        # Hint: find out what the .squeeze()/.unsqueeze() methods do
+
+        ### YOUR CODE HERE ###
+        logits = None
+        return logits
+
+# %% tags=["solution"]
+class EdgeScoringTransformer(nn.Module):
+    def __init__(
+        self,
+        content_features: int = 1,
+        d_model: int = 96,
+        num_heads: int = 4,
+        num_layers: int = 2,
+        d_ff: int = 256,
+    ):
+        super().__init__()
+        self.embed = nn.Linear(content_features, d_model)
+        self.pos_enc = CoordinateEncoding(d_model)
+        self.blocks = nn.ModuleList(
+            [TransformerBlock(d_model, num_heads, d_ff) for _ in range(num_layers)]
+        )
+        self.edge_head = nn.Sequential(
+            nn.Linear(2 * d_model, d_ff),
+            nn.GELU(),
+            nn.Linear(d_ff, 1),
+        )
+
+    def forward(
+        self, feats: torch.Tensor, coords: torch.Tensor, edge_index: torch.Tensor
+    ) -> torch.Tensor:
+        """Score candidate edges.
+
+        Args:
+            feats: Content features for one frame pair, shape (N, content_features).
+            coords: (t, x, y) coordinates, shape (N, 3).
+            edge_index: Candidate edges as (source, target) indices, shape (E, 2).
+
+        Returns:
+            One logit per candidate edge, shape (E,).
+        """
+        h = (self.embed(feats) + self.pos_enc(coords)).unsqueeze(0)  # (1, N, d_model)
+        for block in self.blocks:
+            h = block(h)
+        h = h.squeeze(0)  # (N, d_model)
+        h_source = h[edge_index[:, 0]]
+        h_target = h[edge_index[:, 1]]
+        edge_feats = torch.cat([h_source, h_target], dim=-1)  # (E, 2 * d_model)
+        return self.edge_head(edge_feats).squeeze(-1)  # (E,)
+
+# %%
+# Quick shape check on one frame pair
+_model = EdgeScoringTransformer().to(device)
+_ex = dataset[0]
+_logits = _model(_ex["feats"].to(device), _ex["coords"].to(device), _ex["edge_index"].to(device))
+assert _logits.shape == (_ex["edge_index"].shape[0],), (
+    f"Expected shape ({_ex['edge_index'].shape[0]},), got {tuple(_logits.shape)}"
+)
+print("EdgeScoringTransformer forward pass works!")
+del _model, _ex, _logits
+
+# %% [markdown]
+# ### Training
+#
+# We train with a binary cross-entropy loss over the candidate edges. Note that the problem is very imbalanced: true links are quite rare compared to all potential candidate edges, so we up-weight the positive class with `pos_weight` by weighting the loss more on samples belonging to the positive class. We process the detections of one frame pair at a time, which keeps the model simple (no padding/masking required).
+#
+# Before training, we will generate a small train/val split where 20% of the last frame pairs are held out as validation. We do this as we only have one movie available for the exercise. In real scenarios, holding out whole movies is preferred to avoid data leakage.
+
+# %%
+@torch.inference_mode()
+def evaluate(model, loader, loss_fn, device=device):
+    """Average loss and accuracy over a frame-pair DataLoader."""
+    model.eval()
+    total_loss, correct, total, n_batches = 0.0, 0, 0, 0
+    for ex in loader:
+        logits = model(ex["feats"].to(device), ex["coords"].to(device), ex["edge_index"].to(device))
+        labels = ex["labels"].to(device)
+        total_loss += loss_fn(logits, labels).item()
+        correct += ((torch.sigmoid(logits) > 0.5).float() == labels).sum().item()
+        total += labels.numel()
+        n_batches += 1
+    return total_loss / max(n_batches, 1), correct / max(total, 1)
+
+
+def train_edge_scorer(model, train_loader, val_loader, num_epochs=20, lr=1e-3, device=device):
+    model.to(device)
+    optimizer = torch.optim.AdamW(model.parameters(), lr=lr)
+    # class imbalance weight computed from the training split only
+    n_pos = sum(ex["labels"].sum().item() for ex in train_loader)
+    n_neg = sum((ex["labels"] == 0).sum().item() for ex in train_loader)
+    pos_weight = torch.tensor([n_neg / max(n_pos, 1.0)], device=device)
+    loss_fn = nn.BCEWithLogitsLoss(pos_weight=pos_weight)
+
+    for epoch in range(num_epochs):
+        model.train()
+        epoch_loss, n_batches = 0.0, 0
+        for ex in train_loader:
+            optimizer.zero_grad()
+            logits = model(ex["feats"].to(device), ex["coords"].to(device), ex["edge_index"].to(device))
+            loss = loss_fn(logits, ex["labels"].to(device))
+            loss.backward()
+            optimizer.step()
+            epoch_loss += loss.item()
+            n_batches += 1
+        if epoch == 0 or (epoch + 1) % 5 == 0:
+            train_loss = epoch_loss / max(n_batches, 1)
+            val_loss, val_acc = evaluate(model, val_loader, loss_fn, device)
+            print(
+                f"Epoch {epoch + 1:3d}/{num_epochs}  "
+                f"train loss = {train_loss:.4f}  val loss = {val_loss:.4f}  val acc = {val_acc:.3f}"
+            )
+    return model
+
+torch.manual_seed(0)
+n_train = int(0.8 * len(dataset))
+train_set = Subset(dataset, range(n_train))
+val_set = Subset(dataset, range(n_train, len(dataset)))
+train_loader = DataLoader(train_set, batch_size=1, shuffle=True, collate_fn=lambda b: b[0])
+val_loader = DataLoader(val_set, batch_size=1, shuffle=False, collate_fn=lambda b: b[0])
+print(f"  train: {len(train_set)} frame pairs | val: {len(val_set)} frame pairs")
+
+model = EdgeScoringTransformer().to(device)
+model = train_edge_scorer(model, train_loader, val_loader, num_epochs=25, lr=1e-3)
+
+
+# %% [markdown]
+# <div class="alert alert-block alert-warning"><h3>Question 6</h3>
+# <ul>
+#   
+# </ul>
+# </div>
+
+# %% [markdown]
+# Now we run the trained model over **every** frame pair (train *and* validation) and store its association score (a probability in $[0, 1]$) on each candidate edge, just like the `drift_dist` attribute earlier - the linker needs scores for the whole movie. Edges the model never saw get a score of 0.
+
+# %%
+def add_transformer_score_attr(cand_graph, model, dataset, device=device):
+    """Store the model's association score on each candidate edge."""
+    model.eval()
+    for edge in cand_graph.edges():
+        cand_graph.edges[edge]["transformer_score"] = 0.0
+    with torch.inference_mode():
+        for ex in dataset:
+            scores = (
+                torch.sigmoid(
+                    model(ex["feats"].to(device), ex["coords"].to(device), ex["edge_index"].to(device))
+                )
+                .cpu()
+                .numpy()
+            )
+            for edge, score in zip(ex["edge_keys"], scores):
+                cand_graph.edges[edge]["transformer_score"] = float(score)
+
+
+add_transformer_score_attr(cand_graph, model, dataset)
+
+
+# %% [markdown]
+# <div class="alert alert-block alert-warning"><h3>Question 7</h3>
+# <ul>
+#   Seeing the training results, do you think accuracy is a meaningful metric to use here? Why/why not? Which other metrics could we use that might be more suitable?
+# </ul>
+# </div>
+
+# %% [markdown]
+# Finally, we plug the learned scores into the same ILP machinery you built before, using an `EdgeSelection` cost on the `"transformer_score"` attribute. Since higher scores mean "more likely a true link", and the ILP minimizes cost, the weight on this cost should be negative.
+
+# %%
+def solve_transformer_optimization(cand_graph):
+    """Set up and solve the ILP using our learned transformer scores."""
+    cand_trackgraph = motile.TrackGraph(cand_graph, frame_attribute="t")
+    solver = motile.Solver(cand_trackgraph)
+    solver.add_cost(
+        motile.costs.NodeSelection(weight=-100, constant=75, attribute="score")
+    )
+    solver.add_cost(
+        motile.costs.EdgeSelection(weight=-50, constant=25, attribute="transformer_score"),
+        name="transformer",
+    )
+    solver.add_cost(motile.costs.Appear(constant=40.0))
+    solver.add_cost(motile.costs.Split(constant=45.0))
+
+    solver.add_constraint(motile.constraints.MaxParents(1))
+    solver.add_constraint(motile.constraints.MaxChildren(2))
+
+    solver.solve(timeout=120)
+    return graph_to_nx(solver.get_selected_subgraph())
+
+
+def run_pipeline(cand_graph, run_name, results_df):
+    solution_graph = solve_transformer_optimization(cand_graph)
+    solution_seg = filter_segmentation(solution_graph, segmentation)
+    run = MotileRun(
+        graph=solution_graph,
+        segmentation=solution_seg,
+        run_name=run_name,
+        time_attr="t",
+        pos_attr=("x", "y"),
+    )
+    tracks_viewer.update_tracks(run, run_name)
+    results_df = get_metrics(gt_tracks, gt_dets, run, results_df)
+    return results_df
+
+
+results_df = run_pipeline(cand_graph, "our_transformer", results_df)
+results_df
+
+
+# <div class="alert alert-block alert-info"><h4>On ILP solvers</h4>
+# 
+# </div>
+
+# %% [markdown]
+# <div class="alert alert-block alert-success"><h2>Checkpoint 4</h2>
+# You have built a tiny, trainable transformer tracker from the pieces you implemented in the transformer exercise, and fed its learned scores into the ILP. Before proceeding, we will discuss in general terms why what we have done for the sake of education is flawed in different ways if we were to do this in a real-case scenario.
+# </div>
+
+# %% [markdown]
+# ## Section 8: Comparison with pretrained trackastra
+#
+# Our from-scratch model was trained on a single short movie with only a handful of features. [Trackastra](https://www.ecva.net/papers/eccv_2024/papers_ECCV/papers/09819.pdf) is the same idea taken much further: a transformer trained on a large variety of datasets, using a longer temporal window and richer features. The [trackastra package](https://github.com/weigertlab/trackastra) ships a general 2D model, which we use here to predict edge scores for our candidate graph and then solve with the same ILP - so we can compare it directly against our own model in the results table.
 
 # %%
 # download the pretrained model
@@ -953,7 +1385,7 @@ print("Example score output", trackastra_scores[0])
 # - `time`, the time frame of the node
 # - `label`, the label of the segmentation that was used to create the node
 #
-# Trackastra likely does something very similar to the regionprops approach you used in Task 1 to get the nodes from the segmentation labels. However, there is an obvious difference: we used the label as the node id, because we knew our segmentation labels did not repeat across time. Since Trackastra does not assume this, it assigns a new `id` for each node.
+# Trackastra does something very similar to the regionprops approach we used to build the candidate graph nodes from the segmentation labels, and in fact includes more regionprops features, such as intensity or area. However, there is an obvious difference: we used the label as the node id, because we knew our segmentation labels did not repeat across time. Since Trackastra does not assume this, it assigns a new `id` for each node.
 #
 # Trackastra also outputs a list of scores. Each score has:
 # - A tuple of node IDs, corresponding to the `id` field in the nodes list
@@ -985,14 +1417,11 @@ add_trackastra_score_attr(cand_graph, trackastra_nodes, trackastra_scores)
 
 
 # %% [markdown]
-# <div class="alert alert-block alert-info"><h3>Task 5: Solve with trackastra scores</h3>
-# <p> Now that our candidate graph contains trackastra scores, we set up our final solving pipeline! You should include an EdgeSelection cost based on the "trackastra_score" attribute. Trackastra scores are between 0 and 1, with higher scores being better. Should the weight be positive or negative? Remember, we are minimizing the total cost, so we will pick the edges that have the smallest/most negative cost. </p>
-# <p>You can choose what other costs (if any) to combine with the trackastra score, and how to weight them against each other. </p>
-# </div>
+# Now that our candidate graph contains the pretrained trackastra scores, we set up a solving pipeline using them, exactly as we did for our own transformer scores. We provide the solver below: it uses an `EdgeSelection` cost on the `"trackastra_score"` attribute (negative weight, since higher scores are better), combined with the drift cost.
 
-# %% tags=["task"]
+# %%
 def solve_trackastra_optimization(cand_graph):
-    """Set up and solve the ILP
+    """Set up and solve the ILP using the pretrained trackastra scores.
 
     Args:
         cand_graph (nx.DiGraph): The candidate graph.
@@ -1000,47 +1429,6 @@ def solve_trackastra_optimization(cand_graph):
     Returns:
         nx.DiGraph: The networkx digraph with the selected solution tracks
     """
-
-    cand_trackgraph = motile.TrackGraph(cand_graph, frame_attribute="t")
-    solver = motile.Solver(cand_trackgraph)
-
-    ### YOUR CODE HERE ###
-    
-    solver.solve(timeout=120)
-    solution_graph = graph_to_nx(solver.get_selected_subgraph())
-    return solution_graph
-
-
-def run_pipeline(cand_graph, run_name, results_df):
-    solution_graph = solve_trackastra_optimization(cand_graph)
-    solution_seg = filter_segmentation(solution_graph, segmentation)
-    run = MotileRun(
-        graph=solution_graph,
-        segmentation=solution_seg,
-        run_name=run_name,
-        time_attr="t",
-        pos_attr=("x", "y"),
-    )
-    tracks_viewer.update_tracks(run, run_name)
-    results_df = get_metrics(gt_tracks, gt_dets, run, results_df)
-    return results_df
-
-# Don't forget to rename your run if you re-run this cell!
-results_df = run_pipeline(cand_graph, "trackastra", results_df)
-results_df
-
-
-# %% tags=["solution"]
-def solve_trackastra_optimization(cand_graph):
-    """Set up and solve the ILP
-
-    Args:
-        cand_graph (nx.DiGraph): The candidate graph.
-
-    Returns:
-        nx.DiGraph: The networkx digraph with the selected solution tracks
-    """
-
     cand_trackgraph = motile.TrackGraph(cand_graph, frame_attribute="t")
     solver = motile.Solver(cand_trackgraph)
     solver.add_cost(
@@ -1077,21 +1465,20 @@ def run_pipeline(cand_graph, run_name, results_df):
     results_df = get_metrics(gt_tracks, gt_dets, run, results_df)
     return results_df
 
-# Don't forget to rename your run if you re-run this cell!
-results_df = run_pipeline(cand_graph, "trackastra", results_df)
+results_df = run_pipeline(cand_graph, "pretrained_trackastra", results_df)
 results_df
 
 # %% [markdown]
-# <div class="alert alert-block alert-warning"><h3>Question 6</h3>
+# <div class="alert alert-block alert-warning"><h3>Question 8</h3>
 # <ul>
-#   <li>How do the learned Trackastra scores compare to your hand crafted scores? </li>
+#   <li>How do the pretrained trackastra scores compare to your own transformer's scores, and to the hand-crafted drift cost?</li>
 #   <li>What types of mistakes does your best model make?</li>
 #   <li>How could you improve the results even further? </li>
 # </ul>
 # </div>
 
 # %% [markdown]
-# <div class="alert alert-block alert-success"><h2>Checkpoint 4</h2>
+# <div class="alert alert-block alert-success"><h2>Checkpoint 5</h2>
 # That is the end of the main exercise! If you have extra time, feel free to keep tuning your costs, examining the metrics and visualization tools, or try the bonus trackmate exercise.
 
 # %%

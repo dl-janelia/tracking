@@ -1,6 +1,7 @@
 # %% [markdown]
 """
-## Part 2: Transformers for 1D Sequences
+# Exercise 8
+## Part 1: Transformers for 1D Sequences
 
 In this part, we will build the core components of a transformer from scratch, understand their fundamental properties, and apply them to a simple sequence task.
 
@@ -10,6 +11,8 @@ In particular, we will:
 - Implement positional embeddings so to inject order information and break permutation equivariance.
 - Assemble a full transformer encoder block from these components.
 - Train a small transformer to classify whether sequences of numbers are sorted.
+
+This notebook was originally written by Albert Dominguez Mantes for the 2026 edition of the course.
 """
 
 # %%
