@@ -121,7 +121,7 @@ from typing import Iterable, Any
 # Here we load the raw image data, segmentation, and probabilities from the zarr, and view them in napari.
 
 # %%
-data_path = "./data/breast_cancer_fluo.zarr"
+data_path = "../data/breast_cancer_fluo.zarr"
 data_root = zarr.open(data_path, 'r')
 image_data = data_root["raw"][:]
 segmentation = data_root["seg"][:]
@@ -157,7 +157,7 @@ viewer.add_labels(segmentation, name="seg")
 #
 
 # %%
-gt_tracks, metadata = geff.read("data/breast_cancer_fluo.zarr/gt_tracks.geff")
+gt_tracks, metadata = geff.read("../data/breast_cancer_fluo.zarr/gt_tracks.geff")
 print(f"The ground truth tracks have {gt_tracks.number_of_nodes()} nodes and {gt_tracks.number_of_edges()} edges")
 
 # %% [markdown]
