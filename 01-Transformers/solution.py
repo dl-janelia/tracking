@@ -12,6 +12,18 @@ In particular, we will:
 - Assemble a full transformer encoder block from these components.
 - Train a small transformer to classify whether sequences of numbers are sorted.
 
+
+# <div class="alert alert-danger">
+# Set your python kernel to <code>08-tracking</code>
+# </div>
+
+Places where you are expected to write code are marked with
+```
+# TASK:
+...
+# END OF TASK
+```
+
 This notebook was originally written by Albert Dominguez Mantes for the 2026 edition of the course.
 """
 

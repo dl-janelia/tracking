@@ -1,5 +1,7 @@
 # Exercise 8 - Tracking
 
+## TODO: update to add transformers
+
 This exercise was created by Benjamin Gallusser and Albert Dominguez Mantes,
 and updated for 2024/2025 by Caroline Malin-Mayor.
 

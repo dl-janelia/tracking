@@ -1351,11 +1351,6 @@ def run_pipeline(cand_graph, run_name, results_df):
 results_df = run_pipeline(cand_graph, "our_transformer", results_df)
 results_df
 
-
-# <div class="alert alert-block alert-info"><h4>On ILP solvers</h4>
-# 
-# </div>
-
 # %% [markdown]
 # <div class="alert alert-block alert-success"><h2>Checkpoint 4</h2>
 # You have built a tiny, trainable transformer tracker from the pieces you implemented in the transformer exercise, and fed its learned scores into the ILP. Before proceeding, we will discuss in general terms why what we have done for the sake of education is flawed in different ways if we were to do this in a real-case scenario.

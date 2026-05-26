@@ -9,10 +9,13 @@ then
 fi
 
 # Create environment
-uv sync
+conda create -n tracking python=3.12
 
 # Activate environment
-source .venv/bin/activate
+conda activate tracking
+
+# Install dependencies
+pip install "motile>=0.3" "traccuracy>=0.1.1" "geff>=1.1.3" "motile-tracker[all]>=4.6,<5" "funtracks>=1.8,<2" "zarr<3" numpy trackastra matplotlib ipywidgets nbformat pandas ipykernel jupyterlab
 
 # Download data from s3
 wget https://dl-at-mbl-data.s3.us-east-2.amazonaws.com/2026/tracking/data.zip
