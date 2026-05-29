@@ -54,9 +54,9 @@ _Attention_ is a mechanism that solves this limitation. Given a set of inputs, a
 
 The key idea is simple: attention computes a weighted sum of input values, where the weights are determined by the similarity between a query and a set of keys. One way to think about it: the query asks "what am I looking for?", the keys say "what do I contain?", and the values say "what do I return?".
 
-This will be important what we need in Part 3 for tracking: given cell detections across time frames, we want the model to decide which detections in one frame are relevant to which detections in another frame.
+This will be important and needed in Part 3 for tracking: given cell detections across time frames, we want the model to decide which detections in one frame are relevant to which detections in another frame.
 
-Before diving into transformers, let's define an important term: _token_. A token is the minimal unit on which transformers perform computations on. For text inputs (e.g. LLMs), an input token is a sequence of characters. For images, it's a small patch containing multiple pixels (usually 64 or 256). Each input token is then transformed to a vector of fixed dimension (sometimes called "token embedding"). As we will see, what transformers do is to iteratively transform this vector representation of a token. Note that for simplicity _token_ can be also used to refer to _token embeddings_ (hence the distinction _input token_ before).
+Before diving into transformers, let's define an important term: _token_. A token is the minimal unit on which transformers perform computations. For text inputs (e.g. LLMs), an input token is a sequence of characters. For images, it's a small patch containing multiple pixels (usually 64 or 256). Each input token is then transformed to a vector of fixed dimension (sometimes called "token embedding"). As we will see, what transformers do is to iteratively transform this vector representation of a token. Note that for simplicity _token_ can be also used to refer to _token embeddings_ (hence the distinction _input token_ before).
 """
 
 # %% [markdown]
@@ -191,7 +191,7 @@ plt.show()
 
 In the example above, we used the same tensor `X` for queries, keys, and values. Using the raw input directly is obviously limiting, we'd ideally want the model to learn different representations for queries, keys, and values to enhance expressability.
 
-An option to do this by adding simple learned linear projections: three separate weight matrices $W_Q$, $W_K$, $W_V$ which transform the input $X$ into queries, keys, and values respectively:
+An option to do this is to add simple learned linear projections: three separate weight matrices $W_Q$, $W_K$, $W_V$ which transform the input $X$ into queries, keys, and values respectively:
 
 $$Q = XW_Q, \quad K = XW_K, \quad V = XW_V$$
 
@@ -361,7 +361,7 @@ print("Permutation equivariance holds: permuting the input permutes the output i
 <div class="alert alert-block alert-success">
 <h2>Checkpoint 1</h2>
 
-You have implemented SDPA from scratch, built a self-attention layer, and demonstrated that self-attention is permutation equivariant, treating its input as a set with no notion of order.
+You have implemented SDPA from scratch, built a self-attention layer, and observed that self-attention is permutation equivariant, treating its input as a set with no notion of order.
 
 This is actually a very powerful property when we want to process sets (which is what we'll partly use in the next part!). But for sequences where order matters, we need to fix this. That's what we'll do next.
 </div>
@@ -369,7 +369,7 @@ This is actually a very powerful property when we want to process sets (which is
 
 # %% [markdown]
 """
-### 2.5) Positional Embeddings
+### 2.5) Positional Encoding
 
 Since self-attention is permutation equivariant, it has no way of knowing the position of each token in the sequence. To inject this information, we add a _positional encoding_ to the input embeddings before feeding them to the SDPA operation.
 
@@ -380,7 +380,7 @@ $$PE_{(pos, 2i+1)} = \cos\left(\frac{pos}{10000^{2i/d_{model}}}\right)$$
 
 where $pos$ is the position in the sequence and $i$ is the dimension index. Each position gets a unique encoding vector, and the sinusoidal pattern allows the model to learn to attend to relative positions. This positional encoding vector is then added to the input token embedding (i.e. $X'=X+PE(X)$), adding the notion of position to it.
 
-There are also learned positional embeddings_(a simple `nn.Embedding` layer indexed by position), which are used in many architectures. Another variant becoming the standard is Rotary Positional Embeddings (RoPE), which in a nutshell encodes relative position of tokens as angles between their embeddings.
+There are also learned positional embeddings (a simple `nn.Embedding` layer indexed by position), which are used in many architectures. Another variant becoming the standard is Rotary Positional Embeddings (RoPE), which in a nutshell encodes relative position of tokens as angles between their embeddings.
 
 Here we'll implement the sinusoidal version, which has the advantage of being parameter-free and generalizing to arbitrary sequence lengths.
 

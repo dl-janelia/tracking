@@ -372,7 +372,7 @@ print(f"Our ground truth track graph has {gt_tracks.number_of_nodes()} nodes and
 
 # %% [markdown]
 # <div class="alert alert-block alert-info"><h3>Task 1: Set up a basic motile tracking pipeline</h3>
-# <p>Use the motile <a href=https://funkelab.github.io/motile/quickstart.html#sec-quickstart>quickstart</a> example to set up a basic motile pipeline for our task.
+# <p>Use the motile <a href=https://funkelab.github.io/motile/v0.4.0/quickstart.html>quickstart</a> example to set up a basic motile pipeline for our task.
 #
 # Here are some key similarities and differences between the quickstart and our task:
 # <ul>
@@ -1475,5 +1475,3 @@ results_df
 # %% [markdown]
 # <div class="alert alert-block alert-success"><h2>Checkpoint 5</h2>
 # That is the end of the main exercise! If you have extra time, feel free to keep tuning your costs, examining the metrics and visualization tools, or try the bonus trackmate exercise.
-
-# %%
