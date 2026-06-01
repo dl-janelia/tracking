@@ -10,9 +10,9 @@
 #       format_version: '1.3'
 #       jupytext_version: 1.11.2
 #   kernelspec:
-#     display_name: 09-tracking
+#     display_name: tracking
 #     language: python
-#     name: 09-tracking
+#     name: tracking
 # ---
 
 # %% [markdown]
@@ -44,7 +44,7 @@
 # After running through the full tracking pipeline, from loading to evaluation, we will learn how to **incorporate custom costs** based on dataset-specific prior information and deep learning models.
 #
 # <div class="alert alert-danger">
-# Set your python kernel to <code>08-tracking</code>
+# Set your python kernel to <code>tracking</code>
 # </div>
 #
 # Places where you are expected to write code are marked with

@@ -14,7 +14,7 @@ In particular, we will:
 
 
 # <div class="alert alert-danger">
-# Set your python kernel to <code>08-tracking</code>
+# Set your python kernel to <code>tracking</code>
 # </div>
 
 Places where you are expected to write code are marked with
