@@ -963,8 +963,6 @@ class TransformerBlock(nn.Module):
 #
 
 # %%
-from scipy.spatial import KDTree
-
 def match_gt_to_candidates(cand_graph, gt_tracks, max_dist=15.0):
     """
     Match each candidate node to the nearest ground-truth node in the same
@@ -979,7 +977,7 @@ def match_gt_to_candidates(cand_graph, gt_tracks, max_dist=15.0):
         gt_ids = gt_by_frame[t]
         gt_pos = np.array([[gt_tracks.nodes[n]["x"], gt_tracks.nodes[n]["y"]] for n in gt_ids])
         cand_pos = np.array([[cand_graph.nodes[n]["x"], cand_graph.nodes[n]["y"]] for n in cand_ids])
-        dists, idxs = KDTree(gt_pos).query(cand_pos, distance_upper_bound=max_dist)
+        dists, idxs = scipy.spatial.KDTree(gt_pos).query(cand_pos, distance_upper_bound=max_dist)
         for cand_id, dist, idx in zip(cand_ids, dists, idxs):
             if np.isfinite(dist) and idx < len(gt_ids):
                 matches[cand_id] = gt_ids[idx]
