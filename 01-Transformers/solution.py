@@ -845,8 +845,13 @@ class SequenceClassifier(nn.Module):
         """
         super().__init__()
         self.use_pe = use_pe
+        if self.use_pe:
+            pe = sinusoidal_positional_encoding(seq_len, d_model)
+            # the following tells Torch that this is not a learnable parameter, but it should be
+            # saved with the model and moved to the appropriate device with .to() calls
+            # note that this is accessible anywhere in the class as self.pe
+            self.register_buffer("pe", pe)
         self.token_emb = nn.Embedding(vocab_size, d_model)
-        self.register_buffer("pe", sinusoidal_positional_encoding(seq_len, d_model))
         self.blocks = nn.ModuleList(
             [TransformerBlock(d_model, num_heads, d_ff) for _ in range(num_layers)]
         )
