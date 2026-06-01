@@ -46,7 +46,7 @@ else:
 
 # %% [markdown]
 """
-### 2.1) Introduction
+### 1.1) Introduction
 
 In the previous exercises, we used convolutional neural networks (CNNs) and multi-layer perceptrons (MLPs) to process data. Both of these architectures have **fixed receptive fields**: a convolutional layer looks at a local neighborhood of fixed size, and a fully connected layer has a fixed number of inputs. This means they cannot dynamically decide which parts of the input are most relevant for computing each output.
 
@@ -61,7 +61,7 @@ Before diving into transformers, let's define an important term: _token_. A toke
 
 # %% [markdown]
 """
-### 2.2) Scaled Dot-Product Attention
+### 1.2) Scaled Dot-Product Attention
 
 The most widely used form of attention is scaled dot-product attention (SDPA), introduced in the seminal paper ["Attention Is All You Need"](https://arxiv.org/abs/1706.03762) (Vaswani et al., 2017). Given matrices of queries $Q$, keys $K$, and values $V$, it computes:
 
@@ -86,7 +86,7 @@ print(f"Input shape: {X.shape}")  # (B, N, D)
 # %% [markdown]
 """
 <div class="alert alert-block alert-info">
-    <h2>Task 2.1</h2>
+    <h2>Task 1.1</h2>
 
 Implement Scaled Dot-Product Attention
 </div>
@@ -187,7 +187,7 @@ plt.show()
 
 # %% [markdown]
 """
-### 2.3) Self-Attention
+### 1.3) Self-Attention
 
 In the example above, we used the same tensor `X` for queries, keys, and values. Using the raw input directly is obviously limiting, we'd ideally want the model to learn different representations for queries, keys, and values to enhance expressability.
 
@@ -200,14 +200,14 @@ This is called _self-attention_: the attention mechanism acts on transformed ver
 A variant of attention used mostly in decoder architecture is _cross-attention_, in which the query matrix $Q$ comes from one input $X$ while the keys and values matrices ($K$, $V$) come from another input $X'$. We will focus on self-attention for now though.
 
 <div class="alert alert-block alert-info">
-    <h2>Task 2.2</h2>
+    <h2>Task 1.2</h2>
 
 Implement a Self-Attention Layer
 </div>
 
 Implement a `SelfAttention` module with:
 - Three `nn.Linear` layers (without bias) that project the input into $Q$, $K$, $V$.
-- A `forward` method that applies the projections and then calls your `scaled_dot_product_attention` function from Task 2.1.
+- A `forward` method that applies the projections and then calls your `scaled_dot_product_attention` function from Task 1.1.
 """
 
 
@@ -277,7 +277,7 @@ print("Self-attention layer works correctly!")
 
 # %% [markdown]
 """
-### 2.4) Permutation Equivariance
+### 1.4) Permutation Equivariance
 
 Let's derive a fundamental property of self-attention. Revisiting the SDPA formula:
 
@@ -292,7 +292,7 @@ $$\text{SelfAttention}(X_\pi) = \text{SelfAttention}(X)_\pi$$
 This property is called **permutation equivariance**: permuting the input permutes the output in the same way. In other words, self-attention treats its input as a set: there is no notion of order.
 
 <div class="alert alert-block alert-info">
-    <h2>Task 2.3</h2>
+    <h2>Task 1.3</h2>
 
 Empirically show permutation equivariance
 </div>
@@ -369,7 +369,7 @@ This is actually a very powerful property when we want to process sets (which is
 
 # %% [markdown]
 """
-### 2.5) Positional Encoding
+### 1.5) Positional Encoding
 
 Since self-attention is permutation equivariant, it has no way of knowing the position of each token in the sequence. To inject this information, we add a _positional encoding_ to the input embeddings before feeding them to the SDPA operation.
 
@@ -385,7 +385,7 @@ There are also learned positional embeddings (a simple `nn.Embedding` layer inde
 Here we'll implement the sinusoidal version, which has the advantage of being parameter-free and generalizing to arbitrary sequence lengths.
 
 <div class="alert alert-block alert-info">
-    <h2>Task 2.4</h2>
+    <h2>Task 1.4</h2>
 
 Implement Sinusoidal Positional Encoding
 </div>
@@ -479,12 +479,12 @@ plt.show()
 # %% [markdown]
 """
 <div class="alert alert-block alert-info">
-    <h2>Task 2.5</h2>
+    <h2>Task 1.5</h2>
 
 Show That Positional Embeddings Break Permutation Equivariance
 </div>
 
-Now let's repeat the permutation experiment from Task 2.3, but this time we add positional encodings (PEs) to the input before passing it through self-attention. Since the PEs are different for each position, permuting the tokens will change the position information they receive, and the output should no longer be simply a permuted version of the original.
+Now let's repeat the permutation experiment from Task 1.3, but this time we add positional encodings (PEs) to the input before passing it through self-attention. Since the PEs are different for each position, permuting the tokens will change the position information they receive, and the output should no longer be simply a permuted version of the original.
 
 1. Add the positional encoding to `X`: `X_pe = X + PE`
 2. Compute self-attention on `Y_pe`
@@ -541,7 +541,7 @@ print("Permutation equivariance is broken: the model is now position-aware.")
 
 # %% [markdown]
 """
-### 2.6) The Transformer Encoder Block
+### 1.6) The Transformer Encoder Block
 
 Now that we understand the core components, let's assemble them into a full **transformer encoder block**. The standard architecture is:
 
@@ -561,7 +561,7 @@ _Multi-head_ attention is a simple extension of self-attention: instead of compu
 We will use PyTorch's built-in `nn.MultiheadAttention` for this, since you already understand the "single-head" self-attention mechanism from the previous tasks (and you _really_ want to use the optimized self-attention kernels for a runtime boost!).
 
 <div class="alert alert-block alert-info">
-    <h2>Task 2.6</h2>
+    <h2>Task 1.6</h2>
 
 Build a Transformer Encoder Block
 </div>
@@ -669,7 +669,7 @@ Now let's put everything together and train a small transformer on a concrete ta
 
 # %% [markdown]
 """
-### 2.7) Putting It Together: Is This Sequence Sorted?
+### 1.7) Putting It Together: Is This Sequence Sorted?
 
 To see the transformer in action, we'll train one on a very simple but illustrative classification task: classifying whether a sequence of integers is sorted in ascending order. Given a sequence like `[3, 15, 42, 63, 91]`, the model should predict "sorted" (label 1). Given `[42, 7, 91, 15, 63]`, it should predict "not sorted" (label 0).
 
@@ -737,7 +737,7 @@ for i in range(6):
 # %% [markdown]
 """
 <div class="alert alert-block alert-info">
-    <h2>Task 2.7</h2>
+    <h2>Task 1.7</h2>
 
 Build a Sequence Classification Transformer
 </div>
@@ -745,8 +745,8 @@ Build a Sequence Classification Transformer
 Implement the `SequenceClassifier` model with the following components:
 
 1. Turn each number in the input into a dense vector: use an `nn.Embedding` layer that maps integer inputs to dense vectors of size `d_model`.
-2. Positional encoding: Use your `sinusoidal_positional_encoding` function from Task 2.4. Include a boolean flag `use_pe` to optionally disable it (we'll use this to compare with and without PE).
-3. Transformer blocks: A stack of `num_layers` `TransformerBlock` modules (from Task 2.6).
+2. Positional encoding: Use your `sinusoidal_positional_encoding` function from Task 1.4. Include a boolean flag `use_pe` to optionally disable it (we'll use this to compare with and without PE).
+3. Transformer blocks: A stack of `num_layers` `TransformerBlock` modules (from Task 1.6).
 4. Classification head: A `nn.Linear` layer that maps from `d_model` to `num_classes` (2 in our case).
 
 The forward pass should:
