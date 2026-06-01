@@ -1363,9 +1363,11 @@ results_df
 
 # %%
 # download the pretrained model
-model = trackastra.model.Trackastra.from_pretrained("general_2d", device="automatic")
+# (note: we use a new variable name so we don't shadow the EdgeScoringTransformer
+# we trained above, which is still bound to `model` and used in earlier cells)
+trackastra_model = trackastra.model.Trackastra.from_pretrained("general_2d", device="automatic")
 # predict
-predictions = model._predict(image_data, segmentation)
+predictions = trackastra_model._predict(image_data, segmentation)
 trackastra_nodes = predictions["nodes"]
 trackastra_scores = predictions["weights"]
 # show representative outputs
