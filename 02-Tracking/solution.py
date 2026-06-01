@@ -1309,7 +1309,7 @@ add_transformer_score_attr(cand_graph, model, dataset)
 # </div>
 
 # %% [markdown]
-# Finally, we plug the learned scores into the same ILP machinery you built before, using an `EdgeSelection` cost on the `"transformer_score"` attribute. Since higher scores mean "more likely a true link", and the ILP minimizes cost, the weight on this cost should be negative.
+# Finally, we plug the learned scores into the same ILP machinery you built before, using an `EdgeSelection` cost on the `"transformer_score"` attribute. Since higher scores mean "more likely a true link", and the ILP minimizes cost, the weight on this cost should be negative. We keep the `drift_dist` cost from Section 6 in the mix, so the comparison with pretrained `trackastra` below uses the exact same solver configuration apart from the swapped-in score attribute.
 
 # %%
 def solve_transformer_optimization(cand_graph):
@@ -1318,6 +1318,9 @@ def solve_transformer_optimization(cand_graph):
     solver = motile.Solver(cand_trackgraph)
     solver.add_cost(
         motile.costs.NodeSelection(weight=-100, constant=75, attribute="score")
+    )
+    solver.add_cost(
+        motile.costs.EdgeSelection(weight=1.0, constant=-30, attribute="drift_dist"), name="drift"
     )
     solver.add_cost(
         motile.costs.EdgeSelection(weight=-50, constant=25, attribute="transformer_score"),
