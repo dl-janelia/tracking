@@ -1270,7 +1270,8 @@ model = train_edge_scorer(model, train_loader, val_loader, num_epochs=25, lr=1e-
 # %% [markdown]
 # <div class="alert alert-block alert-warning"><h3>Question 6</h3>
 # <ul>
-#   
+#   <li>Our train/val split takes the first 80% of frame pairs as training and the last 20% as validation, all from the same movie. What does this say about how seriously we should take the validation loss/accuracy as an estimate of generalization?</li>
+#   <li>What would a more honest evaluation protocol look like if we had access to several movies?</li>
 # </ul>
 # </div>
 
