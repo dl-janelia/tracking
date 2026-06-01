@@ -17,7 +17,7 @@
 
 # %% [markdown]
 # # Exercise 8
-# ## Part 2: Tracking-by-detection with an integer linear program (ILP)
+# ## Part 2: Tracking-by-detection with motile (ILP) and transformer-based linkers
 #
 # Objective:
 # - Write a pipeline that takes in cell detections and links them across time to obtain lineage trees
@@ -986,7 +986,7 @@ def match_gt_to_candidates(cand_graph, gt_tracks, max_dist=15.0):
     return matches
 
 # %% [markdown]
-# Let's proceed. For each detection we need to keep differnt things: first, the $(t, x, y$ coordinates, which we will use for the positional encoding, as well as a single node feature, the StarDist `score`. Note that all spatial and temporal information goes through the positional encoding: the only thing the per-token embedding sees is "how confident is StarDist that this is a cell?".
+# Let's proceed. For each detection we need to keep different things: first, the $(t, x, y)$ coordinates, which we will use for the positional encoding, as well as a single node feature, the StarDist `score`. Note that all spatial and temporal information goes through the positional encoding: the only thing the per-token embedding sees is "how confident is StarDist that this is a cell?".
 # 
 # Below you'll find a `FramePairDataset` which, given the candidate graph, turns each adjacent frame pair into tensors ready to be consumed by the model/training/evaluation code. Each frame pair has a different number of detections/edges, so we will stick to using a `DataLoader` with `batch_size=1` to avoid padding/masking and making our lifes a bit easier.
 
@@ -1304,7 +1304,7 @@ add_transformer_score_attr(cand_graph, model, dataset)
 # %% [markdown]
 # <div class="alert alert-block alert-warning"><h3>Question 7</h3>
 # <ul>
-#   Seeing the training results, do you think accuracy is a meaningful metric to use here? Why/why not? Which other metrics could we use that might be more suitable?
+#   <li>Seeing the training results, do you think accuracy is a meaningful metric to use here? Why/why not? Which other metrics could we use that might be more suitable?</li>
 # </ul>
 # </div>
 
