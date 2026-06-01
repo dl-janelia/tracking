@@ -54,7 +54,7 @@ _Attention_ is a mechanism that solves this limitation. Given a set of inputs, a
 
 The key idea is simple: attention computes a weighted sum of input values, where the weights are determined by the similarity between a query and a set of keys. One way to think about it: the query asks "what am I looking for?", the keys say "what do I contain?", and the values say "what do I return?".
 
-This will be important and needed in Part 3 for tracking: given cell detections across time frames, we want the model to decide which detections in one frame are relevant to which detections in another frame.
+This will be important and needed in Part 2 for tracking: given cell detections across time frames, we want the model to decide which detections in one frame are relevant to which detections in another frame.
 
 Before diving into transformers, let's define an important term: _token_. A token is the minimal unit on which transformers perform computations. For text inputs (e.g. LLMs), an input token is a sequence of characters. For images, it's a small patch containing multiple pixels (usually 64 or 256). Each input token is then transformed to a vector of fixed dimension (sometimes called "token embedding"). As we will see, what transformers do is to iteratively transform this vector representation of a token. Note that for simplicity _token_ can be also used to refer to _token embeddings_ (hence the distinction _input token_ before).
 """
@@ -1058,6 +1058,6 @@ You have built a complete transformer encoder from scratch and trained it on a s
     <li>A transformer block consists of a multi-head attention operation along with feed-forward layers, normalization, and a residual connection.</li>
 </ul>
 
-In Part 3, we will apply these ideas to tracking: instead of integers in a sequence, the tokens will correspond to cell detections in different frames, and the transformer will learn which cells across frames correspond to each other, which is exactly what <code>trackastra</code> does.
+In Part 2, we will apply these ideas to tracking: instead of integers in a sequence, the tokens will correspond to cell detections in different frames, and the transformer will learn which cells across frames correspond to each other, which is exactly what <code>trackastra</code> does.
 </div>
 """
