@@ -529,7 +529,7 @@ tracks_viewer.update_tracks(basic_run, "basic_solution")
 # </div>
 
 # %% [markdown]
-# ## Section 5 (Task 2): Evaluation Metrics
+# ## Section 5 (Task 2, optional): Evaluation Metrics
 #
 # We were able to understand via visualizing the predicted tracks on the images that the basic solution is far from perfect for this problem. Additionally, we would also like to quantify this. We will use the package [`traccuracy`](https://traccuracy.readthedocs.io/en/latest/) to learn about and compute cell tracking metrics. While we looked at the basic documentation together during the checkpoint, take some time now to do a deeper dive into the matchers and metrics available, considering which metrics you might want to focus on for different biological analyses.
 
