@@ -41,8 +41,8 @@ if torch.cuda.is_available():
 elif torch.backends.mps.is_available():
     device = torch.device("mps")
 else:
-    print("GPU not available. Will use CPU.")
     device = torch.device("cpu")
+print(f"Using device: {device}")
 
 # %% [markdown]
 """
@@ -152,7 +152,7 @@ def scaled_dot_product_attention(
 # Let's test your implementation by comparing it to PyTorch's built-in
 # scaled_dot_product_attention (which does not return the weights, but
 # we can compare the output).
-Q, K, V = X, X, X  # for now, Q=K=V (we'll change this later)
+Q, K, V = X, X, X  # for the SDPA sanity check we use Q=K=V; SelfAttention will project them separately
 
 our_output, our_weights = scaled_dot_product_attention(Q, K, V)
 torch_output = F.scaled_dot_product_attention(Q, K, V)
