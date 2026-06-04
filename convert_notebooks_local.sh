@@ -1,27 +1,29 @@
-#!/bin/zsh
+#!/usr/bin/env bash
+# Local mirror of .github/workflows/build_notebooks.yaml so contributors can
+# regenerate the *.ipynb files from the *.py without pushing to GitHub.
+#
+# Requires `jupytext` and `jupyter nbconvert` to be available on PATH (both
+# are pulled in by the `tracking` env if you ran setup.sh; otherwise install
+# them with `pip install jupytext nbconvert` or `pipx install jupytext`).
 
-if [ "${BASH_SOURCE[0]}" -ef "$0" ]
-then
-    echo "Hey, you should source this script, not execute it!"
-    echo "Try: source setup.sh"
-    echo "Exiting..."
-    exit 1
-fi
-
-PYJ=/Users/adomi/.local/pipx/venvs/jupytext/bin/python
+set -euo pipefail
 
 for dir in 01-Transformers 02-Tracking; do
-  cd $dir
-  jupytext --to ipynb --update-metadata '{"jupytext":{"cell_metadata_filter":"all"}}' solution.py
+  pushd "$dir" > /dev/null
 
-  "$PYJ" -m nbconvert solution.ipynb\
-    --TagRemovePreprocessor.enabled=True\
-    --TagRemovePreprocessor.remove_cell_tags solution --to notebook\
-    --output exercise.ipynb
+  jupytext --to ipynb \
+    --update-metadata '{"jupytext":{"cell_metadata_filter":"all"}}' \
+    solution.py
 
-  "$PYJ" -m nbconvert solution.ipynb\
-    --TagRemovePreprocessor.enabled=True\
-    --TagRemovePreprocessor.remove_cell_tags task --to notebook --output\
-    solution.ipynb
-  cd ..
+  jupyter nbconvert solution.ipynb \
+    --TagRemovePreprocessor.enabled=True \
+    --TagRemovePreprocessor.remove_cell_tags solution \
+    --to notebook --output exercise.ipynb
+
+  jupyter nbconvert solution.ipynb \
+    --TagRemovePreprocessor.enabled=True \
+    --TagRemovePreprocessor.remove_cell_tags task \
+    --to notebook --output solution.ipynb
+
+  popd > /dev/null
 done

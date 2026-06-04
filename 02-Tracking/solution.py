@@ -10,14 +10,14 @@
 #       format_version: '1.3'
 #       jupytext_version: 1.11.2
 #   kernelspec:
-#     display_name: 09-tracking
+#     display_name: tracking
 #     language: python
-#     name: 09-tracking
+#     name: tracking
 # ---
 
 # %% [markdown]
 # # Exercise 8
-# ## Part 2: Tracking-by-detection with an integer linear program (ILP)
+# ## Part 2: Tracking-by-detection with motile (ILP) and transformer-based linkers
 #
 # Objective:
 # - Write a pipeline that takes in cell detections and links them across time to obtain lineage trees
@@ -44,7 +44,7 @@
 # After running through the full tracking pipeline, from loading to evaluation, we will learn how to **incorporate custom costs** based on dataset-specific prior information and deep learning models.
 #
 # <div class="alert alert-danger">
-# Set your python kernel to <code>08-tracking</code>
+# Set your python kernel to <code>tracking</code>
 # </div>
 #
 # Places where you are expected to write code are marked with
@@ -529,7 +529,7 @@ tracks_viewer.update_tracks(basic_run, "basic_solution")
 # </div>
 
 # %% [markdown]
-# ## Section 5 (Task 2): Evaluation Metrics
+# ## Section 5 (Task 2, optional): Evaluation Metrics
 #
 # We were able to understand via visualizing the predicted tracks on the images that the basic solution is far from perfect for this problem. Additionally, we would also like to quantify this. We will use the package [`traccuracy`](https://traccuracy.readthedocs.io/en/latest/) to learn about and compute cell tracking metrics. While we looked at the basic documentation together during the checkpoint, take some time now to do a deeper dive into the matchers and metrics available, considering which metrics you might want to focus on for different biological analyses.
 
@@ -963,8 +963,6 @@ class TransformerBlock(nn.Module):
 #
 
 # %%
-from scipy.spatial import KDTree
-
 def match_gt_to_candidates(cand_graph, gt_tracks, max_dist=15.0):
     """
     Match each candidate node to the nearest ground-truth node in the same
@@ -979,14 +977,14 @@ def match_gt_to_candidates(cand_graph, gt_tracks, max_dist=15.0):
         gt_ids = gt_by_frame[t]
         gt_pos = np.array([[gt_tracks.nodes[n]["x"], gt_tracks.nodes[n]["y"]] for n in gt_ids])
         cand_pos = np.array([[cand_graph.nodes[n]["x"], cand_graph.nodes[n]["y"]] for n in cand_ids])
-        dists, idxs = KDTree(gt_pos).query(cand_pos, distance_upper_bound=max_dist)
+        dists, idxs = scipy.spatial.KDTree(gt_pos).query(cand_pos, distance_upper_bound=max_dist)
         for cand_id, dist, idx in zip(cand_ids, dists, idxs):
             if np.isfinite(dist) and idx < len(gt_ids):
                 matches[cand_id] = gt_ids[idx]
     return matches
 
 # %% [markdown]
-# Let's proceed. For each detection we need to keep differnt things: first, the $(t, x, y$ coordinates, which we will use for the positional encoding, as well as a single node feature, the StarDist `score`. Note that all spatial and temporal information goes through the positional encoding: the only thing the per-token embedding sees is "how confident is StarDist that this is a cell?".
+# Let's proceed. For each detection we need to keep different things: first, the $(t, x, y)$ coordinates, which we will use for the positional encoding, as well as a single node feature, the StarDist `score`. Note that all spatial and temporal information goes through the positional encoding: the only thing the per-token embedding sees is "how confident is StarDist that this is a cell?".
 # 
 # Below you'll find a `FramePairDataset` which, given the candidate graph, turns each adjacent frame pair into tensors ready to be consumed by the model/training/evaluation code. Each frame pair has a different number of detections/edges, so we will stick to using a `DataLoader` with `batch_size=1` to avoid padding/masking and making our lifes a bit easier.
 
@@ -1272,7 +1270,8 @@ model = train_edge_scorer(model, train_loader, val_loader, num_epochs=25, lr=1e-
 # %% [markdown]
 # <div class="alert alert-block alert-warning"><h3>Question 6</h3>
 # <ul>
-#   
+#   <li>Our train/val split takes the first 80% of frame pairs as training and the last 20% as validation, all from the same movie. What does this say about how seriously we should take the validation loss/accuracy as an estimate of generalization?</li>
+#   <li>What would a more honest evaluation protocol look like if we had access to several movies?</li>
 # </ul>
 # </div>
 
@@ -1304,12 +1303,12 @@ add_transformer_score_attr(cand_graph, model, dataset)
 # %% [markdown]
 # <div class="alert alert-block alert-warning"><h3>Question 7</h3>
 # <ul>
-#   Seeing the training results, do you think accuracy is a meaningful metric to use here? Why/why not? Which other metrics could we use that might be more suitable?
+#   <li>Seeing the training results, do you think accuracy is a meaningful metric to use here? Why/why not? Which other metrics could we use that might be more suitable?</li>
 # </ul>
 # </div>
 
 # %% [markdown]
-# Finally, we plug the learned scores into the same ILP machinery you built before, using an `EdgeSelection` cost on the `"transformer_score"` attribute. Since higher scores mean "more likely a true link", and the ILP minimizes cost, the weight on this cost should be negative.
+# Finally, we plug the learned scores into the same ILP machinery you built before, using an `EdgeSelection` cost on the `"transformer_score"` attribute. Since higher scores mean "more likely a true link", and the ILP minimizes cost, the weight on this cost should be negative. We keep the `drift_dist` cost from Section 6 in the mix, so the comparison with pretrained `trackastra` below uses the exact same solver configuration apart from the swapped-in score attribute.
 
 # %%
 def solve_transformer_optimization(cand_graph):
@@ -1318,6 +1317,9 @@ def solve_transformer_optimization(cand_graph):
     solver = motile.Solver(cand_trackgraph)
     solver.add_cost(
         motile.costs.NodeSelection(weight=-100, constant=75, attribute="score")
+    )
+    solver.add_cost(
+        motile.costs.EdgeSelection(weight=1.0, constant=-30, attribute="drift_dist"), name="drift"
     )
     solver.add_cost(
         motile.costs.EdgeSelection(weight=-50, constant=25, attribute="transformer_score"),
@@ -1363,9 +1365,11 @@ results_df
 
 # %%
 # download the pretrained model
-model = trackastra.model.Trackastra.from_pretrained("general_2d", device="automatic")
+# (note: we use a new variable name so we don't shadow the EdgeScoringTransformer
+# we trained above, which is still bound to `model` and used in earlier cells)
+trackastra_model = trackastra.model.Trackastra.from_pretrained("general_2d", device="automatic")
 # predict
-predictions = model._predict(image_data, segmentation)
+predictions = trackastra_model._predict(image_data, segmentation)
 trackastra_nodes = predictions["nodes"]
 trackastra_scores = predictions["weights"]
 # show representative outputs

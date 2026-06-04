@@ -14,7 +14,7 @@ In particular, we will:
 
 
 # <div class="alert alert-danger">
-# Set your python kernel to <code>08-tracking</code>
+# Set your python kernel to <code>tracking</code>
 # </div>
 
 Places where you are expected to write code are marked with
@@ -41,12 +41,12 @@ if torch.cuda.is_available():
 elif torch.backends.mps.is_available():
     device = torch.device("mps")
 else:
-    print("GPU not available. Will use CPU.")
     device = torch.device("cpu")
+print(f"Using device: {device}")
 
 # %% [markdown]
 """
-### 2.1) Introduction
+### 1.1) Introduction
 
 In the previous exercises, we used convolutional neural networks (CNNs) and multi-layer perceptrons (MLPs) to process data. Both of these architectures have **fixed receptive fields**: a convolutional layer looks at a local neighborhood of fixed size, and a fully connected layer has a fixed number of inputs. This means they cannot dynamically decide which parts of the input are most relevant for computing each output.
 
@@ -54,14 +54,14 @@ _Attention_ is a mechanism that solves this limitation. Given a set of inputs, a
 
 The key idea is simple: attention computes a weighted sum of input values, where the weights are determined by the similarity between a query and a set of keys. One way to think about it: the query asks "what am I looking for?", the keys say "what do I contain?", and the values say "what do I return?".
 
-This will be important and needed in Part 3 for tracking: given cell detections across time frames, we want the model to decide which detections in one frame are relevant to which detections in another frame.
+This will be important and needed in Part 2 for tracking: given cell detections across time frames, we want the model to decide which detections in one frame are relevant to which detections in another frame.
 
 Before diving into transformers, let's define an important term: _token_. A token is the minimal unit on which transformers perform computations. For text inputs (e.g. LLMs), an input token is a sequence of characters. For images, it's a small patch containing multiple pixels (usually 64 or 256). Each input token is then transformed to a vector of fixed dimension (sometimes called "token embedding"). As we will see, what transformers do is to iteratively transform this vector representation of a token. Note that for simplicity _token_ can be also used to refer to _token embeddings_ (hence the distinction _input token_ before).
 """
 
 # %% [markdown]
 """
-### 2.2) Scaled Dot-Product Attention
+### 1.2) Scaled Dot-Product Attention
 
 The most widely used form of attention is scaled dot-product attention (SDPA), introduced in the seminal paper ["Attention Is All You Need"](https://arxiv.org/abs/1706.03762) (Vaswani et al., 2017). Given matrices of queries $Q$, keys $K$, and values $V$, it computes:
 
@@ -86,7 +86,7 @@ print(f"Input shape: {X.shape}")  # (B, N, D)
 # %% [markdown]
 """
 <div class="alert alert-block alert-info">
-    <h2>Task 2.1</h2>
+    <h2>Task 1.1</h2>
 
 Implement Scaled Dot-Product Attention
 </div>
@@ -152,7 +152,7 @@ def scaled_dot_product_attention(
 # Let's test your implementation by comparing it to PyTorch's built-in
 # scaled_dot_product_attention (which does not return the weights, but
 # we can compare the output).
-Q, K, V = X, X, X  # for now, Q=K=V (we'll change this later)
+Q, K, V = X, X, X  # for the SDPA sanity check we use Q=K=V; SelfAttention will project them separately
 
 our_output, our_weights = scaled_dot_product_attention(Q, K, V)
 torch_output = F.scaled_dot_product_attention(Q, K, V)
@@ -187,7 +187,7 @@ plt.show()
 
 # %% [markdown]
 """
-### 2.3) Self-Attention
+### 1.3) Self-Attention
 
 In the example above, we used the same tensor `X` for queries, keys, and values. Using the raw input directly is obviously limiting, we'd ideally want the model to learn different representations for queries, keys, and values to enhance expressability.
 
@@ -200,14 +200,14 @@ This is called _self-attention_: the attention mechanism acts on transformed ver
 A variant of attention used mostly in decoder architecture is _cross-attention_, in which the query matrix $Q$ comes from one input $X$ while the keys and values matrices ($K$, $V$) come from another input $X'$. We will focus on self-attention for now though.
 
 <div class="alert alert-block alert-info">
-    <h2>Task 2.2</h2>
+    <h2>Task 1.2</h2>
 
 Implement a Self-Attention Layer
 </div>
 
 Implement a `SelfAttention` module with:
 - Three `nn.Linear` layers (without bias) that project the input into $Q$, $K$, $V$.
-- A `forward` method that applies the projections and then calls your `scaled_dot_product_attention` function from Task 2.1.
+- A `forward` method that applies the projections and then calls your `scaled_dot_product_attention` function from Task 1.1.
 """
 
 
@@ -277,7 +277,7 @@ print("Self-attention layer works correctly!")
 
 # %% [markdown]
 """
-### 2.4) Permutation Equivariance
+### 1.4) Permutation Equivariance
 
 Let's derive a fundamental property of self-attention. Revisiting the SDPA formula:
 
@@ -292,7 +292,7 @@ $$\text{SelfAttention}(X_\pi) = \text{SelfAttention}(X)_\pi$$
 This property is called **permutation equivariance**: permuting the input permutes the output in the same way. In other words, self-attention treats its input as a set: there is no notion of order.
 
 <div class="alert alert-block alert-info">
-    <h2>Task 2.3</h2>
+    <h2>Task 1.3</h2>
 
 Empirically show permutation equivariance
 </div>
@@ -369,7 +369,7 @@ This is actually a very powerful property when we want to process sets (which is
 
 # %% [markdown]
 """
-### 2.5) Positional Encoding
+### 1.5) Positional Encoding
 
 Since self-attention is permutation equivariant, it has no way of knowing the position of each token in the sequence. To inject this information, we add a _positional encoding_ to the input embeddings before feeding them to the SDPA operation.
 
@@ -385,7 +385,7 @@ There are also learned positional embeddings (a simple `nn.Embedding` layer inde
 Here we'll implement the sinusoidal version, which has the advantage of being parameter-free and generalizing to arbitrary sequence lengths.
 
 <div class="alert alert-block alert-info">
-    <h2>Task 2.4</h2>
+    <h2>Task 1.4</h2>
 
 Implement Sinusoidal Positional Encoding
 </div>
@@ -479,12 +479,12 @@ plt.show()
 # %% [markdown]
 """
 <div class="alert alert-block alert-info">
-    <h2>Task 2.5</h2>
+    <h2>Task 1.5</h2>
 
 Show That Positional Embeddings Break Permutation Equivariance
 </div>
 
-Now let's repeat the permutation experiment from Task 2.3, but this time we add positional encodings (PEs) to the input before passing it through self-attention. Since the PEs are different for each position, permuting the tokens will change the position information they receive, and the output should no longer be simply a permuted version of the original.
+Now let's repeat the permutation experiment from Task 1.3, but this time we add positional encodings (PEs) to the input before passing it through self-attention. Since the PEs are different for each position, permuting the tokens will change the position information they receive, and the output should no longer be simply a permuted version of the original.
 
 1. Add the positional encoding to `X`: `X_pe = X + PE`
 2. Compute self-attention on `Y_pe`
@@ -541,7 +541,7 @@ print("Permutation equivariance is broken: the model is now position-aware.")
 
 # %% [markdown]
 """
-### 2.6) The Transformer Encoder Block
+### 1.6) The Transformer Encoder Block
 
 Now that we understand the core components, let's assemble them into a full **transformer encoder block**. The standard architecture is:
 
@@ -561,7 +561,7 @@ _Multi-head_ attention is a simple extension of self-attention: instead of compu
 We will use PyTorch's built-in `nn.MultiheadAttention` for this, since you already understand the "single-head" self-attention mechanism from the previous tasks (and you _really_ want to use the optimized self-attention kernels for a runtime boost!).
 
 <div class="alert alert-block alert-info">
-    <h2>Task 2.6</h2>
+    <h2>Task 1.6</h2>
 
 Build a Transformer Encoder Block
 </div>
@@ -669,7 +669,7 @@ Now let's put everything together and train a small transformer on a concrete ta
 
 # %% [markdown]
 """
-### 2.7) Putting It Together: Is This Sequence Sorted?
+### 1.7) Putting It Together: Is This Sequence Sorted?
 
 To see the transformer in action, we'll train one on a very simple but illustrative classification task: classifying whether a sequence of integers is sorted in ascending order. Given a sequence like `[3, 15, 42, 63, 91]`, the model should predict "sorted" (label 1). Given `[42, 7, 91, 15, 63]`, it should predict "not sorted" (label 0).
 
@@ -737,7 +737,7 @@ for i in range(6):
 # %% [markdown]
 """
 <div class="alert alert-block alert-info">
-    <h2>Task 2.7</h2>
+    <h2>Task 1.7</h2>
 
 Build a Sequence Classification Transformer
 </div>
@@ -745,8 +745,8 @@ Build a Sequence Classification Transformer
 Implement the `SequenceClassifier` model with the following components:
 
 1. Turn each number in the input into a dense vector: use an `nn.Embedding` layer that maps integer inputs to dense vectors of size `d_model`.
-2. Positional encoding: Use your `sinusoidal_positional_encoding` function from Task 2.4. Include a boolean flag `use_pe` to optionally disable it (we'll use this to compare with and without PE).
-3. Transformer blocks: A stack of `num_layers` `TransformerBlock` modules (from Task 2.6).
+2. Positional encoding: Use your `sinusoidal_positional_encoding` function from Task 1.4. Include a boolean flag `use_pe` to optionally disable it (we'll use this to compare with and without PE).
+3. Transformer blocks: A stack of `num_layers` `TransformerBlock` modules (from Task 1.6).
 4. Classification head: A `nn.Linear` layer that maps from `d_model` to `num_classes` (2 in our case).
 
 The forward pass should:
@@ -845,8 +845,13 @@ class SequenceClassifier(nn.Module):
         """
         super().__init__()
         self.use_pe = use_pe
+        if self.use_pe:
+            pe = sinusoidal_positional_encoding(seq_len, d_model)
+            # the following tells Torch that this is not a learnable parameter, but it should be
+            # saved with the model and moved to the appropriate device with .to() calls
+            # note that this is accessible anywhere in the class as self.pe
+            self.register_buffer("pe", pe)
         self.token_emb = nn.Embedding(vocab_size, d_model)
-        self.register_buffer("pe", sinusoidal_positional_encoding(seq_len, d_model))
         self.blocks = nn.ModuleList(
             [TransformerBlock(d_model, num_heads, d_ff) for _ in range(num_layers)]
         )
@@ -1058,6 +1063,6 @@ You have built a complete transformer encoder from scratch and trained it on a s
     <li>A transformer block consists of a multi-head attention operation along with feed-forward layers, normalization, and a residual connection.</li>
 </ul>
 
-In Part 3, we will apply these ideas to tracking: instead of integers in a sequence, the tokens will correspond to cell detections in different frames, and the transformer will learn which cells across frames correspond to each other, which is exactly what <code>trackastra</code> does.
+In Part 2, we will apply these ideas to tracking: instead of integers in a sequence, the tokens will correspond to cell detections in different frames, and the transformer will learn which cells across frames correspond to each other, which is exactly what <code>trackastra</code> does.
 </div>
 """
