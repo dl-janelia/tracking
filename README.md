@@ -1,12 +1,15 @@
 # Exercise 8 - Tracking
 
 This exercise was created by Benjamin Gallusser and Albert Dominguez Mantes,
-and updated for 2024/2025 by Caroline Malin-Mayor.
+updated for 2024/2025 by Caroline Malin-Mayor, and extended for 2026 by
+Albert Dominguez Mantes with a transformers-from-scratch part.
 
 <img src="figures/tracking.gif" width="500"/>
 
-## Objective:
-- Write a pipeline that takes in cell detections and links them across time to obtain lineage trees
+## Objectives
+- Build the core components of a transformer from scratch and train one on a toy sequence task.
+- Write a pipeline that takes in cell detections and links them across time to obtain lineage trees.
+- Plug a small, trainable transformer into the tracking ILP as an edge scorer, and compare it against the pretrained `trackastra` model.
 
 
 ## Setup
@@ -15,8 +18,10 @@ and updated for 2024/2025 by Caroline Malin-Mayor.
     source setup.sh
     ```
     to set up the environment for this exercise. This will take a few minutes.
-   
-2. Open `exercise.ipynb` in VSCode with the jupyter extension and select the `08-tracking` kernel.
+2. Open the notebooks in VSCode with the jupyter extension and select the `tracking` kernel:
+    - `01-Transformers/exercise.ipynb` — transformers from scratch on a toy sequence task.
+    - `02-Tracking/exercise.ipynb` — ILP-based tracking with motile, with a learned transformer edge scorer and a comparison against pretrained `trackastra`.
+    - `03-Bonus-trackmate/bonus_trackmate.ipynb` — optional bonus on two-step LAP tracking with TrackMate.
 
 
 ## Overview: Tracking by detection with an integer linear program (ILP)
