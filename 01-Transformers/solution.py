@@ -416,7 +416,7 @@ Implement Sinusoidal Positional Encoding
 
 Implement the function `sinusoidal_positional_encoding(max_len, d_model)` so that it returns a tensor of shape `(max_len, d_model)` containing the positional encodings.
 
-Hint: the term $10000^{2i/d_{model}}$ can be computed more stably as $\exp\left(-\frac{2i}{d_{model}} \ln(10000)\right)$.
+Hint: the term $\frac{1}{10000^{2i/d_{model}}}$ can be computed more stably as $\exp\left(-\frac{2i}{d_{model}} \ln(10000)\right)$.
 """
 
 
@@ -439,7 +439,7 @@ def sinusoidal_positional_encoding(
     position = torch.arange(0, max_len).unsqueeze(1).float()  # (max_len, 1)
 
     # TASK: compute the positional encoding
-    # 1. Compute the "div_term": exp(-2i/d_model * ln(10000)) for i = 0, 1, ..., d_model/2 - 1
+    # 1. Compute the "div_term": exp(-i/d_model * -2*ln(10000)) for i = 0, 1, ..., d_model/2 - 1
     # 2. Fill even indices (pe[:, 0::2]) with sin(position * div_term)
     # 3. Fill odd indices (pe[:, 1::2]) with cos(position * div_term)
     # END OF TASK
@@ -466,7 +466,7 @@ def sinusoidal_positional_encoding(
     position = torch.arange(0, max_len).unsqueeze(1).float()  # (max_len, 1)
 
     div_term = torch.exp(
-        torch.arange(0, d_model, 2).float() * (-np.log(10000.0) / d_model)
+        torch.arange(0, d_model//2, 1).float() * (-2*np.log(10000.0) / d_model)
     )  # (d_model / 2,)
     pe[:, 0::2] = torch.sin(position * div_term)
     pe[:, 1::2] = torch.cos(position * div_term)
@@ -477,9 +477,22 @@ def sinusoidal_positional_encoding(
 # %%
 pe = sinusoidal_positional_encoding(max_len=N, d_model=D)
 assert pe.shape == (N, D), f"Shape should be ({N}, {D}), got {pe.shape}"
-# even columns should be sin and odd ones should be cos at position 0
-assert torch.allclose(pe[0, 0::2], torch.zeros(D // 2), atol=1e-5), "sin(0) should be 0 for all even dimensions"
-assert torch.allclose(pe[0, 1::2], torch.ones(D // 2), atol=1e-5), "cos(0) should be 1 for all odd dimensions"
+
+expected_pe = torch.Tensor(
+       [[ 0.0000e+00,  1.0000e+00,  0.0000e+00,  1.0000e+00,  0.0000e+00,
+          1.0000e+00,  0.0000e+00,  1.0000e+00],
+        [ 8.4147e-01,  5.4030e-01,  9.9833e-02,  9.9500e-01,  9.9998e-03,
+          9.9995e-01,  1.0000e-03,  1.0000e+00],
+        [ 9.0930e-01, -4.1615e-01,  1.9867e-01,  9.8007e-01,  1.9999e-02,
+          9.9980e-01,  2.0000e-03,  1.0000e+00],
+        [ 1.4112e-01, -9.8999e-01,  2.9552e-01,  9.5534e-01,  2.9995e-02,
+          9.9955e-01,  3.0000e-03,  1.0000e+00],
+        [-7.5680e-01, -6.5364e-01,  3.8942e-01,  9.2106e-01,  3.9989e-02,
+          9.9920e-01,  4.0000e-03,  9.9999e-01],
+        [-9.5892e-01,  2.8366e-01,  4.7943e-01,  8.7758e-01,  4.9979e-02,
+          9.9875e-01,  5.0000e-03,  9.9999e-01]
+])
+assert torch.allclose(pe, expected_pe, atol=1e-5), "Positional encoding values are incorrect"
 print("Positional encoding shape and values look correct!")
 
 # %% [markdown]

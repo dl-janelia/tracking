@@ -1208,7 +1208,7 @@ del _model, _ex, _logits
 #
 # We train with a binary cross-entropy loss over the candidate edges. Note that the problem is very imbalanced: true links are quite rare compared to all potential candidate edges, so we up-weight the positive class with `pos_weight` by weighting the loss more on samples belonging to the positive class. We process the detections of one frame pair at a time, which keeps the model simple (no padding/masking required).
 #
-# Before training, we will generate a small train/val split where 20% of the last frame pairs are held out as validation. We do this as we only have one movie available for the exercise. In real scenarios, holding out whole movies is preferred to avoid data leakage.
+# Before training, we will generate a small train/val split where 20% of the last frame pairs are held out as validation. We do this as we only have one timelapse available for the exercise.
 
 # %%
 @torch.inference_mode()
@@ -1270,13 +1270,13 @@ model = train_edge_scorer(model, train_loader, val_loader, num_epochs=25, lr=1e-
 # %% [markdown]
 # <div class="alert alert-block alert-warning"><h3>Question 6</h3>
 # <ul>
-#   <li>Our train/val split takes the first 80% of frame pairs as training and the last 20% as validation, all from the same movie. What does this say about how seriously we should take the validation loss/accuracy as an estimate of generalization?</li>
-#   <li>What would a more honest evaluation protocol look like if we had access to several movies?</li>
+#   <li>Our train/val split takes the first 80% of frame pairs as training and the last 20% as validation, all from the same timelapse. What does this say about how seriously we should take the validation loss/accuracy as an estimate of generalization in this case?</li>
+#   <li>How would you do the data splitting if we had access to several timelapses?</li>
 # </ul>
 # </div>
 
 # %% [markdown]
-# Now we run the trained model over **every** frame pair (train *and* validation) and store its association score (a probability in $[0, 1]$) on each candidate edge, just like the `drift_dist` attribute earlier - the linker needs scores for the whole movie. Edges the model never saw get a score of 0.
+# Now we run the trained model over **every** frame pair (train *and* validation) and store its association score (a probability in $[0, 1]$) on each candidate edge, just like the `drift_dist` attribute earlier - the linker needs scores for the whole timelapse. Edges the model never saw get a score of 0.
 
 # %%
 def add_transformer_score_attr(cand_graph, model, dataset, device=device):
@@ -1361,7 +1361,7 @@ results_df
 # %% [markdown]
 # ## Section 8: Comparison with pretrained trackastra
 #
-# Our from-scratch model was trained on a single short movie with only a handful of features. [Trackastra](https://www.ecva.net/papers/eccv_2024/papers_ECCV/papers/09819.pdf) is the same idea taken much further: a transformer trained on a large variety of datasets, using a longer temporal window and richer features. The [trackastra package](https://github.com/weigertlab/trackastra) ships a general 2D model, which we use here to predict edge scores for our candidate graph and then solve with the same ILP - so we can compare it directly against our own model in the results table.
+# Our from-scratch model was trained on a single short timelapse with only a handful of features. [Trackastra](https://www.ecva.net/papers/eccv_2024/papers_ECCV/papers/09819.pdf) is the same idea taken much further: a transformer trained on a large variety of datasets, using a longer temporal window and richer features. The [trackastra package](https://github.com/weigertlab/trackastra) ships a general 2D model, which we use here to predict edge scores for our candidate graph and then solve with the same ILP - so we can compare it directly against our own model in the results table.
 
 # %%
 # download the pretrained model
