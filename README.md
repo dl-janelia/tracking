@@ -18,15 +18,21 @@ Albert Dominguez Mantes with a transformers-from-scratch part.
     source setup.sh
     ```
     to set up the environment for this exercise. This will take a few minutes.
-2. Open the notebooks in VSCode with the jupyter extension and select the `tracking` kernel:
-    - `01-Transformers/exercise.ipynb` — transformers from scratch on a toy sequence task.
-    - `02-Tracking/exercise.ipynb` — ILP-based tracking with motile, with a learned transformer edge scorer and a comparison against pretrained `trackastra`.
-    - `03-Bonus-trackmate/bonus_trackmate.ipynb` — optional bonus on two-step LAP tracking with TrackMate.
-
+2. Open the corresponding notebook in VSCode and select the `tracking` kernel:
+    - `01-Transformers/exercise.ipynb`: transformers from scratch on a toy sequence task.
+    - `02-Tracking/exercise.ipynb`: ILP-based tracking with motile, with a learned transformer edge scorer and a comparison against pretrained `trackastra`.
 
 ## Overview: Tracking by detection with an integer linear program (ILP)
 
-### Methods/Tools:
+### Introduction to transformers for 1D sequences
+
+In this part, you will build the core components of a transformer from scratch using `torch`, understand their fundamental properties, and apply them to a simple sequence task.
+
+### Tracking by detection with an integer linear program (ILP)
+
+In this part, you will write an ILP-based pipeline that takes in cell detections and links them across time to obtain lineage trees. You will then train a small transformer-based model to predict linking scores for pairs of cells in adjacent time points to be used in the ILP, and use a pre-trained DL model, `trackastra`, to predict linking scores as well.
+
+#### Methods/Tools:
 
 - **`networkx`**: To represent the tracking inputs and outputs as graphs. Tracking is often framed
     as a graph optimization problem. Nodes in the graph represent detections, and edges represent links
@@ -43,13 +49,6 @@ Albert Dominguez Mantes with a transformers-from-scratch part.
     be more biologically relevant for downstream analysis. Therefore, it is important to evaluate on
     a wide range of error metrics and determine which are most important for your use case.
 
-After running through the full tracking pipeline, from loading to evaluation, we will learn how to **incorporate custom costs** based on dataset-specific prior 
-information and deep learning models.
+#### Bonus: Tracking with two-step Linear Assignment Problem (LAP)
 
-
-### Bonus: Tracking with two-step Linear Assignment Problem (LAP)
-
-There is a bonus notebook showing how to use a two-step linking algorithm implemented in the Fiji plugin TrackMate. We will not go over this in the exercise time, but it is available for those who are interested in learning on their own.
-
-You will learn
-- how to use **Trackmate**, a versatile ready-to-go implementation of two-step LAP tracking in `ImageJ/Fiji`.
+There is a bonus notebook showing how to use a two-step linking algorithm implemented in the Fiji plugin TrackMate. We will not go over this in the exercise time, but it is available for those who are interested in learning on their own. In the bonus you will learn how to use **Trackmate**, a versatile ready-to-go implementation of two-step LAP tracking and other algorithms in `ImageJ/Fiji`.

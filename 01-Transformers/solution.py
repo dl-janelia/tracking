@@ -1,7 +1,7 @@
 # %% [markdown]
 """
 # Exercise 8
-## Part 1: Transformers for 1D Sequences
+## Part 1: Introduction to Transformers
 
 In this part, we will build the core components of a transformer from scratch, understand their fundamental properties, and apply them to a simple sequence task.
 
@@ -13,9 +13,9 @@ In particular, we will:
 - Train a small transformer to classify whether sequences of numbers are sorted.
 
 
-# <div class="alert alert-danger">
-# Set your python kernel to <code>tracking</code>
-# </div>
+<div class="alert alert-danger">
+Set your python kernel to <code>tracking</code>
+</div>
 
 Places where you are expected to write code are marked with
 ```
@@ -68,6 +68,10 @@ The most widely used form of attention is scaled dot-product attention (SDPA), i
 $$\text{Attention}(Q, K, V) = \text{softmax}\left(\frac{QK^\top}{\sqrt{d_k}}\right) V$$
 
 where $d_k$ is the dimension of the keys. Each row of these matrices corresponds to one token, so all matrices have the same number of rows $N$. The scaling factor $\sqrt{d_k}$ basically prevents the dot products from growing too large in magnitude, which would push the softmax into regions with very small gradients.
+
+<div>
+    <img src="assets/attn_op.png" width="600"/>
+</div>
 
 Let's start by creating some toy data to work with: a batch of random tokens (token embeddings).
 """
@@ -185,6 +189,13 @@ plt.show()
 </div>
 """
 
+# %% [markdown] tags=["solution"]
+"""
+<div class="alert alert-block alert-warning">
+    <b>Answer:</b>
+    Yes, it is always true as they are the output of a softmax function, which normalizes the scores over the keys for each query.
+"""
+
 # %% [markdown]
 """
 ### 1.3) Self-Attention
@@ -194,6 +205,10 @@ In the example above, we used the same tensor `X` for queries, keys, and values.
 An option to do this is to add simple learned linear projections: three separate weight matrices $W_Q$, $W_K$, $W_V$ which transform the input $X$ into queries, keys, and values respectively:
 
 $$Q = XW_Q, \quad K = XW_K, \quad V = XW_V$$
+
+<div>
+    <img src="assets/matrix_form.png" width="900"/>
+</div>
 
 This is called _self-attention_: the attention mechanism acts on transformed versions ($Q$, $K$, $V$) of the same input $X$.
 
@@ -299,8 +314,8 @@ Empirically show permutation equivariance
 
 Verify this empirically:
 1. Compute `Y = self_attn(X)` for our test input.
-2. Create a random permutation `perm` of the token indices `[0, 1, ..., N-1]`.
-3. Permute the input (`X_perm`) using `perm`. Note that `X` is of shape (B,N,D).
+2. Create a random permutation `perm` of the token indices `[0, 1, ..., N-1]`. _Hint_: use `torch.randperm()`.
+3. Permute the input (`X_perm`) by indexing `X` with `perm`. Note that `X` is of shape (B,N,D).
 4. Compute `Y_perm` as the self-attention of `X_perm`.
 5. Check that the output is permuted in the same way as the input.
 """
@@ -357,7 +372,15 @@ print("Permutation equivariance holds: permuting the input permutes the output i
     <b>Question:</b>
     If self-attention is permutation equivariant, what information about the input is it unable to capture? Why is this a problem if we want to model sequences (e.g., a sentence, a time series)?
 </div>
+"""
 
+# %% [markdown] tags=["solution"]
+"""
+It is unable to capture the order of tokens in the input sequence. This is a problem when modeling sequences (e.g., sentences, time series) because the order of elements often carries significant semantic meaning. For example, in a sentence, changing the order of words can alter the meaning.
+"""
+
+# %% [markdown]
+"""
 <div class="alert alert-block alert-success">
 <h2>Checkpoint 1</h2>
 
@@ -453,7 +476,7 @@ def sinusoidal_positional_encoding(
 # %%
 pe = sinusoidal_positional_encoding(max_len=N, d_model=D)
 assert pe.shape == (N, D), f"Shape should be ({N}, {D}), got {pe.shape}"
-# Check that even columns are sin and odd are cos at position 0
+# even columns should be sin and odd ones should be cos at position 0
 assert torch.allclose(pe[0, 0::2], torch.zeros(D // 2), atol=1e-5), "sin(0) should be 0 for all even dimensions"
 assert torch.allclose(pe[0, 1::2], torch.ones(D // 2), atol=1e-5), "cos(0) should be 1 for all odd dimensions"
 print("Positional encoding shape and values look correct!")
@@ -481,7 +504,7 @@ plt.show()
 <div class="alert alert-block alert-info">
     <h2>Task 1.5</h2>
 
-Show That Positional Embeddings Break Permutation Equivariance
+Show that positional embeddings break permutation equivariance
 </div>
 
 Now let's repeat the permutation experiment from Task 1.3, but this time we add positional encodings (PEs) to the input before passing it through self-attention. Since the PEs are different for each position, permuting the tokens will change the position information they receive, and the output should no longer be simply a permuted version of the original.
@@ -538,12 +561,26 @@ assert not equivariant, (
 )
 print("Permutation equivariance is broken: the model is now position-aware.")
 
+# %% [markdown]
+"""
+<div class="alert alert-block alert-warning">
+    <b>Question:</b>
+    At this stage, self-attention with positional encodings can capture both content and position information. Is it translation equivariant, like a CNN? In other words, if we shift all tokens in the input by one position (e.g., from `[x1, x2, x3]` to `[x2, x3, x1]`), will the output be shifted in the same way? 
+</div>
+"""
+
+
+# %% [markdown] tags=["solution"]
+"""
+    <b>Answer:</b>
+    No, it is not translation equivariant. Shifting all tokens by one position will change the positional encodings they receive, and thus the output will not simply be a shifted version of the original output.
+"""
 
 # %% [markdown]
 """
 ### 1.6) The Transformer Encoder Block
 
-Now that we understand the core components, let's assemble them into a full **transformer encoder block**. The standard architecture is:
+Now that we understand the core component of a transformer, self-attention, let's assemble them into a full **transformer encoder block**. The standard architecture is:
 
 1. Layer Normalization on the input
 2. Multi-Head Self-Attention (MHA)
@@ -669,11 +706,11 @@ Now let's put everything together and train a small transformer on a concrete ta
 
 # %% [markdown]
 """
-### 1.7) Putting It Together: Is This Sequence Sorted?
+### 1.7) Putting it together: is this sequence sorted?
 
 To see the transformer in action, we'll train one on a very simple but illustrative classification task: classifying whether a sequence of integers is sorted in ascending order. Given a sequence like `[3, 15, 42, 63, 91]`, the model should predict "sorted" (label 1). Given `[42, 7, 91, 15, 63]`, it should predict "not sorted" (label 0).
 
-As this is a sequence classification task, we will need to produce a single output from a sequence of token embeddings. We will achieve so by doing average pooling over the token dimension at the last stage of the model after the transformer encoder blocks, followed by a shallow linear layer to predict the final class.
+As this is a sequence classification task, we will need to produce a single output from a set of token embeddings. We will achieve so by doing average pooling over the token dimension at the last stage of the model after the transformer encoder blocks, followed by a shallow linear layer to predict the final class, similar to what one does for image classification tasks with CNNs.
 
 <div class="alert alert-block alert-warning">
     <b>Question:</b>
@@ -712,7 +749,7 @@ def generate_sorted_detection_data(
     """
     half = num_samples // 2
 
-    # Random sequences, probably unsorted
+    # Random sequences, highly likely unsorted
     unsorted = generate_unsorted_sequences(num_samples - half, seq_len, vocab_size)
     unsorted_labels = torch.zeros(half, dtype=torch.long)
 
@@ -728,7 +765,7 @@ def generate_sorted_detection_data(
     return inputs[perm], targets[perm]
 
 
-# Quick sanity check
+# Sanity check
 sample_in, sample_tgt = generate_sorted_detection_data(6, SEQ_LEN, VOCAB_SIZE)
 for i in range(6):
     label = "sorted" if sample_tgt[i].item() == 1 else "not sorted"
@@ -739,21 +776,21 @@ for i in range(6):
 <div class="alert alert-block alert-info">
     <h2>Task 1.7</h2>
 
-Build a Sequence Classification Transformer
+Build a sequence classification transformer
 </div>
 
 Implement the `SequenceClassifier` model with the following components:
 
 1. Turn each number in the input into a dense vector: use an `nn.Embedding` layer that maps integer inputs to dense vectors of size `d_model`.
-2. Positional encoding: Use your `sinusoidal_positional_encoding` function from Task 1.4. Include a boolean flag `use_pe` to optionally disable it (we'll use this to compare with and without PE).
+2. Positional encoding: re-use your `sinusoidal_positional_encoding` function from Task 1.4. A Boolean flag `use_pe` will be used to optionally disable positional encodings.
 3. Transformer blocks: A stack of `num_layers` `TransformerBlock` modules (from Task 1.6).
 4. Classification head: A `nn.Linear` layer that maps from `d_model` to `num_classes` (2 in our case).
 
 The forward pass should:
-1. Embed the input integers.
+1. Embed the input integers: transform each integer into a dense vector.
 2. Add the positional encoding (if `use_pe` is True).
 3. Pass through all transformer blocks.
-4. Average pool over the sequence dimension to get a single vector per sample.
+4. Average pool over the sequence dimension to get a single vector per sequence.
 5. Apply a small classification head.
 """
 
@@ -792,9 +829,9 @@ class SequenceClassifier(nn.Module):
             # note that this is accessible anywhere in the class as self.pe
             self.register_buffer("pe", pe)
             
-        # TASK: define the model components
-        # a) Input token embedding: use the nn.Embedding() layer
-        # b) Transformer blocks: a nn.ModuleList of num_layers TransformerBlock instances
+        # TASK: define the other model components
+        # a) Input token embedding: use an nn.Embedding() layer
+        # b) Transformer blocks: a module list of num_layers TransformerBlock instances
         # c) Classification head: an nn.Linear layer mapping a d_model vector to num_classes 
         # END OF TASK
 
@@ -808,8 +845,8 @@ class SequenceClassifier(nn.Module):
             Logits tensor, shape (B, num_classes).
         """
         # TASK: implement the forward pass
-        # 1. Embed the tokens
-        # 2. Add positional encoding (only if self.use_pe is set to True)
+        # 1. Embed the tokens into a dense vector
+        # 2. Add positional encodings, if necessary
         # 3. Feed the tokens through each transformer block
         # 4. Average-pool over the sequence dimension
         # 5. Apply classification head
@@ -849,7 +886,7 @@ class SequenceClassifier(nn.Module):
             pe = sinusoidal_positional_encoding(seq_len, d_model)
             # the following tells Torch that this is not a learnable parameter, but it should be
             # saved with the model and moved to the appropriate device with .to() calls
-            # note that this is accessible anywhere in the class as self.pe
+            # note that this is accessible anywhere in the class as self.pe, like a regular attribute
             self.register_buffer("pe", pe)
         self.token_emb = nn.Embedding(vocab_size, d_model)
         self.blocks = nn.ModuleList(
@@ -1048,9 +1085,19 @@ plt.close(fig)
 """
 <div class="alert alert-block alert-warning">
     <b>Question:</b>
-    Increase the number of training epochs to e.g. 100. What do you observe in the training curve of the model without positional encoding? What is a possible explanation for this behaviour?
+    Increase the number of training epochs to e.g. 100. What do you observe in the curves of the model without positional encoding? What is a possible explanation for this behaviour?
 </div>
+"""
 
+# %% [markdown] tags=["solution"]
+"""
+<div class="alert alert-block alert-warning">
+    <b>Answer:</b>
+    The model without PEs shows the training loss converging to a small value similar to the one with PEs, but the validation accuracy remains around random chance (50%). The model is theoretically unable to discriminate between sorted and unsorted sequences, but it has enough capacity to simply _memorize_ the training data sequences (_i.e._ it is overfitting). 
+</div>
+"""
+# %% [markdown]
+"""
 <div class="alert alert-block alert-success">
 <h2>Checkpoint 3</h2>
 
@@ -1063,6 +1110,6 @@ You have built a complete transformer encoder from scratch and trained it on a s
     <li>A transformer block consists of a multi-head attention operation along with feed-forward layers, normalization, and a residual connection.</li>
 </ul>
 
-In Part 2, we will apply these ideas to tracking: instead of integers in a sequence, the tokens will correspond to cell detections in different frames, and the transformer will learn which cells across frames correspond to each other, which is exactly what <code>trackastra</code> does.
+In Part 2, we will learn about tracking and use a transformer to solve the problem: instead of integers in a sequence, the tokens will correspond to cell detections in different frames, and the transformer will learn which cells across frames correspond to each other, which is similar to what <code>trackastra</code> does.
 </div>
 """
