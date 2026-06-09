@@ -124,8 +124,8 @@ def scaled_dot_product_attention(
         output has shape (B, N, D), attention_weights has shape (B, N, N).
     """
     # TASK: implement scaled dot-product attention
-    output = None
     attn_weights = None
+    output = None
     # END OF TASK
     return output, attn_weights
 
@@ -248,6 +248,7 @@ class SelfAttention(nn.Module):
             Output tensor, shape (B, N, D)
         """
         # TASK: project x into Q, K, V, then apply scaled_dot_product_attention
+        # Hint: scaled_dot_product_attention returns a tuple (output, weights), but we only need the output here
         output = None
         # END OF TASK
         return output
@@ -430,7 +431,7 @@ def sinusoidal_positional_encoding(
         d_model: Embedding dimension (must be even).
 
     Returns:
-        Positional encoding tensor of shape (max_len, d_model).
+        torch.Tensor: Positional encoding tensor of shape (max_len, d_model).
     """
     assert d_model % 2 == 0, "d_model must be even for sinusoidal positional encoding"
 
@@ -457,7 +458,7 @@ def sinusoidal_positional_encoding(
         d_model: Embedding dimension (must be even).
 
     Returns:
-        Positional encoding tensor of shape (max_len, d_model).
+        torch.Tensor: Positional encoding tensor of shape (max_len, d_model).
     """
     assert d_model % 2 == 0, "d_model must be even for sinusoidal positional encoding"
 
@@ -572,8 +573,10 @@ print("Permutation equivariance is broken: the model is now position-aware.")
 
 # %% [markdown] tags=["solution"]
 """
+<div class="alert alert-block alert-warning">
     <b>Answer:</b>
     No, it is not translation equivariant. Shifting all tokens by one position will change the positional encodings they receive, and thus the output will not simply be a shifted version of the original output.
+</div>
 """
 
 # %% [markdown]
@@ -588,6 +591,10 @@ Now that we understand the core component of a transformer, self-attention, let'
 4. Layer Normalization on the result
 5. Feed-Forward Network (FFN): two linear layers with a GELU activation in between
 6. Residual connection (add step 3's output back)
+
+<div>
+    <img src="assets/transformer_block.png" width="900"/>
+</div>
 
 In equation form:
 $$x' = x + \text{MHA}(\text{LN}(x))$$
@@ -792,6 +799,10 @@ The forward pass should:
 3. Pass through all transformer blocks.
 4. Average pool over the sequence dimension to get a single vector per sequence.
 5. Apply a small classification head.
+
+<div>
+    <img src="assets/seq_cls.png" width="700"/>
+</div>
 """
 
 
