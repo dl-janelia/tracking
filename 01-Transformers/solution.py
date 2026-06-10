@@ -524,9 +524,9 @@ Show that positional embeddings break permutation equivariance
 Now let's repeat the permutation experiment from Task 1.3, but this time we add positional encodings (PEs) to the input before passing it through self-attention. Since the PEs are different for each position, permuting the tokens will change the position information they receive, and the output should no longer be simply a permuted version of the original.
 
 1. Add the positional encoding to `X`: `X_pe = X + PE`
-2. Compute self-attention on `Y_pe`
+2. Compute self-attention on `X_pe` to compute `Y_pe`
 3. Permute the tokens and add the positional encodings: `X_pe_perm = X_perm + PE` (note: permute the tokens, but not the positional encoding!)
-4. Compute self-attention on `Y_pe_perm`
+4. Compute self-attention on `X_pe_perm` to compute `Y_pe_perm`
 5. Check that `Y_pe_perm` is NOT equal to permuted `Y_pe`
 """
 
@@ -739,11 +739,11 @@ Now let's put everything together and train a small transformer on a concrete ta
 
 To see the transformer in action, we'll train one on a very simple but illustrative classification task: classifying whether a sequence of integers is sorted in ascending order. Given a sequence like `[3, 15, 42, 63, 91]`, the model should predict "sorted" (label 1). Given `[42, 7, 91, 15, 63]`, it should predict "not sorted" (label 0).
 
-As this is a sequence classification task, we will need to produce a single output from a set of token embeddings. We will achieve so by doing average pooling over the token dimension at the last stage of the model after the transformer encoder blocks, followed by a shallow linear layer to predict the final class, similar to what one does for image classification tasks with CNNs.
+As this is a sequence classification task, we will need to produce a single output from a set of token embeddings. We will achieve so by taking the average over the token dimension (`N`) at the last stage of the model after the transformer encoder blocks, followed by a shallow linear layer to predict the final class, similar to what one does for image classification tasks with CNNs.
 
 <div class="alert alert-block alert-warning">
     <b>Question:</b>
-    Take a moment to think about this setting. Are positional encodings necessary here to solve the task? Why/why not? Note that the model is not a "pure" transformer, but has extra operations (average pooling + linear layer).
+    Take a moment to think about this setting. Are positional encodings necessary here to solve the task? Why/why not? Note that the model is not a "pure" transformer, but has extra operations (global average pooling + linear layer).
 </div>
 """
 
