@@ -106,7 +106,7 @@ from typing import Iterable, Any
 # ### Load the dataset and inspect it in napari
 
 # %% [markdown]
-# For this exercise we will be working with a fluorescence microscopy time-lapse of breast cancer cells with stained nuclei (SiR-DNA). It is similar to the dataset at https://zenodo.org/record/4034976#.YwZRCJPP1qt. The raw data, pre-computed segmentations, detection probabilities, and ground truth tracks are saved in a zarr. The segmentation was generated with a pre-trained StartDist model, so there may be some segmentation errors which can affect the tracking process. The detection probabilities also come from StarDist, and are downsampled in x and y by 2 compared to the detections and raw data.
+# For this exercise we will be working with a fluorescence microscopy time-lapse of breast cancer cells with stained nuclei (SiR-DNA). It is similar to the dataset at https://zenodo.org/record/4034976#.YwZRCJPP1qt. The raw data, pre-computed segmentations, detection probabilities, and ground truth tracks are saved in a zarr. The segmentation was generated with a pre-trained StarDist model, so there may be some segmentation errors which can affect the tracking process. The detection probabilities also come from StarDist, and are downsampled in x and y by 2 compared to the detections and raw data.
 
 # %% [markdown]
 # Here we load the raw image data, segmentation, and probabilities from the zarr, and view them in napari.
@@ -304,9 +304,6 @@ def add_cand_edges(
         max_edge_distance (float): Maximum distance that objects can travel between
             frames. All nodes within this distance in adjacent frames will by connected
             with a candidate edge.
-        node_frame_dict (dict[int, list[Any]] | None, optional): A mapping from frames
-            to node ids. If not provided, it will be computed from cand_graph. Defaults
-            to None.
     """
     print("Extracting candidate edges")
     node_frame_dict = _compute_node_frame_dict(cand_graph)
@@ -344,7 +341,7 @@ print(f"Our ground truth track graph has {gt_tracks.number_of_nodes()} nodes and
 # <div class="alert alert-block alert-success"><h2>Checkpoint 1</h2>
 #     We have visualized our data in napari and set up a candidate graph with all possible detections and links that we could select with our optimization task.
 #
-# We will now together go through the `motile` <a href=https://funkelab.github.io/motile/quickstart.html#sec-quickstart>quickstart</a> example before you actually set up and run your own motile optimization. If you reach this checkpoint early, feel free to start reading through the quickstart and think of questions you want to ask!
+# We will now together go through the `motile` <a href=https://funkelab.github.io/motile/v0.4.0/quickstart.html#sec-quickstart>quickstart</a> example before you actually set up and run your own motile optimization. If you reach this checkpoint early, feel free to start reading through the quickstart and think of questions you want to ask!
 # </div>
 
 # %% [markdown]
@@ -355,7 +352,7 @@ print(f"Our ground truth track graph has {gt_tracks.number_of_nodes()} nodes and
 #
 # Finding a good subgraph $\tilde{G}=(\tilde{V}, \tilde{E})$ can be formulated as an [integer linear program (ILP)](https://en.wikipedia.org/wiki/Integer_programming) (also, refer to the tracking lecture slides), where we assign a binary variable $x$ and a cost $c$ to each vertex and edge in $G$, and then computing $min_x c^Tx$.
 #
-# We can add linear costs for selecting nodes or edges. For example, the EdgeDistance cost $C_d(\tilde{E})$ of a particular selection $\tilde{E}$ is a linear equation $C_d(\tilde{E}) = \sum_{e \in E} x_e (w_d * d_e + c_d)$, where $w_es$ is a manually set weight, $C_es$ is a manually set constant, and $d_e$ is the distance of the two endpoints of that edge.
+# We can add linear costs for selecting nodes or edges. For example, the EdgeDistance cost $C_d(\tilde{E})$ of a particular selection $\tilde{E}$ is a linear equation $C_d(\tilde{E}) = \sum_{e \in E} x_e (w_d * d_e + c_d)$, where $w_d$ is a manually set weight, $c_d$ is a manually set constant, and $d_e$ is the distance of the two endpoints of that edge.
 #
 # A set of linear constraints ensures that the solution will be a feasible cell tracking graph. For example, if an edge is part of $\tilde{G}$, both its incident nodes have to be part of $\tilde{G}$ as well.
 #
@@ -367,7 +364,7 @@ print(f"Our ground truth track graph has {gt_tracks.number_of_nodes()} nodes and
 #
 # Here are some key similarities and differences between the quickstart and our task:
 # <ul>
-#     <li>We do not have scores on our edges. However, we can use the edge distance as a cost, so that longer edges are more costly than shorter edges. Instead of using the <code>EdgeSelection</code> cost, we can use the <a href=https://funkelab.github.io/motile/api.html#edgedistance><code>EdgeDistance</code></a> cost with <code>position_attribute=("x", "y")</code>. You will want a positive weight, since higher distances should be more costly, unlike in the example when higher scores were good and so we inverted them with a negative weight.</li>
+#     <li>We do not have scores on our edges. However, we can use the edge distance as a cost, so that longer edges are more costly than shorter edges. Instead of using the <code>EdgeSelection</code> cost, we can use the <a href=https://funkelab.github.io/motile/v0.4.0/api.html#edgedistance><code>EdgeDistance</code></a> cost with <code>position_attribute=("x", "y")</code>. You will want a positive weight, since higher distances should be more costly, unlike in the example when higher scores were good and so we inverted them with a negative weight.</li>
 #     <li>Because distance is always positive, and you want a positive weight, you will want to include a negative constant on the <code>EdgeDistance</code> cost. If there are no negative selection costs, the ILP will always select nothing, because the cost of selecting nothing is zero.</li>
 #     <li>We want to allow divisions. So, we should pass in 2 to our <code>MaxChildren</code> constraint. The <code>MaxParents</code> constraint should have 1, the same as the quickstart, because neither task allows merging.</li>
 #     <li>You should include an <code>Appear</code> cost and a <code>NodeSelection</code> cost similar to the one in the quickstart.</li>
@@ -540,7 +537,7 @@ tracks_viewer.update_tracks(basic_run, "basic_solution")
 # The example code below uses an IOU matcher and computes the following metrics:
 #
 # - **TRA**: TRA is a metric established by the [Cell Tracking Challenge](http://celltrackingchallenge.net). It compares your solution graph to the ground truth graph and measures how many changes to edges and nodes would need to be made in order to make the graphs identical. TRA ranges between 0 and 1 with 1 indicating a perfect match between the solution and the ground truth. While TRA is convenient to use in that it gives us a single number, it doesn't tell us what type of mistakes are being made in our solution.
-# - **Node Errors**: We can look at the number of false positive and false negative nodes in our solution which tells us how how many cells are being incorrectly included or excluded from the solution.
+# - **Node Errors**: We can look at the number of false positive and false negative nodes in our solution which tells us how many cells are being incorrectly included or excluded from the solution.
 # - **Edge Errors**: Similarly, the number of false positive and false negative edges in our graph helps us assess what types of mistakes our solution is making when linking cells between frames.
 # - **Division Errors**: Finally, as biologists we are often very interested in the division events that occur and want to ensure that they are being accurately identified. We can look at the number of true positive, false positive and false negative divisions to assess how our solution is capturing these important events.
 #
@@ -554,7 +551,7 @@ from skimage.draw import disk
 def make_gt_detections(data_shape, gt_tracks, radius):
     segmentation = np.zeros(data_shape, dtype="uint32")
     frame_shape = data_shape[1:]
-    # make frame with one cell in center with label 1
+    # draw a filled circle of the given radius around each ground truth detection
     for node, data in gt_tracks.nodes(data=True):
         pos = (data["x"], data["y"])
         time = data["t"]
@@ -888,7 +885,7 @@ results_df
 # %% [markdown]
 # ## Section 7 (Task 4): Tracking with a custom transformer
 #
-# So far our edge costs have been hand-crafted: Euclidean distance, then distance from an expected drift. But predicting these edge costs, i.e. which detections belong together, can also be learned using a neural network. This is the core idea behind [trackastra](https://www.ecva.net/papers/eccv_2024/papers_ECCV/papers/09819.pdf): a transformer predicts an association score for each candidate edge, and those scores are then fed into a linker (here, our ILP). A main benefit of doing this is making it "easier" for the ILP solver, as a lot of the association workload can be alleviated from the ILP is the "edge scorer" model is well-performing. 
+# So far our edge costs have been hand-crafted: Euclidean distance, then distance from an expected drift. But predicting these edge costs, i.e. which detections belong together, can also be learned using a neural network. This is the core idea behind [trackastra](https://www.ecva.net/papers/eccv_2024/papers_ECCV/papers/09819.pdf): a transformer predicts an association score for each candidate edge, and those scores are then fed into a linker (here, our ILP). A main benefit of doing this is making it "easier" for the ILP solver, as a lot of the association workload can be alleviated from the ILP if the "edge scorer" model is well-performing. 
 #
 # In this section we will implement the core idea of trackastra, predicting edge scores with a transformer, by reusing the `TransformerBlock` you implemented in the previous part. We will then finalize by comparing it against the real `trackastra` model, which has specific architecture design choices to aid the task and was pre-trained on many different datasets.
 

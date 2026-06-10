@@ -439,7 +439,7 @@ def sinusoidal_positional_encoding(
     position = torch.arange(0, N).unsqueeze(1).float()  # (N, 1)
 
     # TASK: compute the positional encoding
-    # 1. Compute the "div_term": exp(-i/D * -2*ln(10000)) for i = 0, 1, ..., D/2 - 1
+    # 1. Compute the "div_term": exp(-i/D * 2*ln(10000)) for i = 0, 1, ..., D/2 - 1
     # 2. Fill even indices (pe[:, 0::2]) with sin(position * div_term)
     # 3. Fill odd indices (pe[:, 1::2]) with cos(position * div_term)
     # END OF TASK
@@ -454,8 +454,8 @@ def sinusoidal_positional_encoding(
     """Compute sinusoidal positional encodings.
 
     Args:
-        N: Maximum sequence length.
-        D: Embedding dimension (must be even).
+        N (int): Sequence length / number of tokens.
+        D (int): Embedding dimension (must be even).
 
     Returns:
         torch.Tensor: Positional encoding tensor of shape (N, d_model).
@@ -625,9 +625,9 @@ Build a Transformer Encoder Block
 </div>
 
 Implement the `TransformerBlock` module following the architecture described above. Use:
-- [`nn.MultiheadAttention`] for the multi-head attention. Note that this module expects input of shape `(N, B, D)` by default (sequence first), but do set `batch_first=True` when instantiating it to use `(B, N, D)`. Its `forward` method expects 3 inputs, which should all be the normalized version of X for self-attention. It outputs a tuple of two values, out of which you should only pick one.
+- [`nn.MultiheadAttention`](https://pytorch.org/docs/stable/generated/torch.nn.MultiheadAttention.html) for the multi-head attention. Note that this module expects input of shape `(N, B, D)` by default (sequence first), but do set `batch_first=True` when instantiating it to use `(B, N, D)`. Its `forward` method expects 3 inputs, which should all be the normalized version of X for self-attention. It outputs a tuple of two values, out of which you should only pick one.
 - [`nn.LayerNorm`](https://pytorch.org/docs/stable/generated/torch.nn.LayerNorm.html) for layer normalization.
-- Two `nn.Linear` layers with a `nn.GELU` activation for the feed-forward network. The hidden dimension of the FFN is typically 4x larger than that the token embedding dimension.
+- Two `nn.Linear` layers with a `nn.GELU` activation for the feed-forward network. The hidden dimension of the FFN is typically 4x larger than the token embedding dimension.
 """
 
 
