@@ -1103,7 +1103,7 @@ class CoordinateEncoding(nn.Module):
 #   <li>Contextualize the detections with a stack of <code>num_layers</code> <code>TransformerBlock</code>s.</li>
 #   <li>Score each candidate edge with a small head: concatenate the (contextualized) source and target embeddings and pass them through <code>Linear(2*d_model, d_ff) -> GELU -> Linear(d_ff, 1)</code>.</li>
 # </ol>
-# <p>The <code>forward</code> takes the content features <code>(N, content_features)</code>, the coordinates <code>coords</code> <code>(N, 3)</code> (t, x, y), and <code>edge_index</code> <code>(E, 2)</code> (source/target indices), and returns one logit per edge, shape <code>(E,)</code>.</p>
+# <p>The <code>forward</code> method is given, and it takes the content features <code>(N, content_features)</code>, the coordinates <code>coords</code> <code>(N, 3)</code> (t, x, y), and <code>edge_index</code> <code>(E, 2)</code> (source/target indices), and returns one logit per edge, shape <code>(E,)</code>.</p>
 # </div>
 
 # %% tags=["task"]
@@ -1117,11 +1117,16 @@ class EdgeScoringTransformer(nn.Module):
         d_ff: int = 256,
     ):
         super().__init__()
+        ### TASK ###
         # a) self.embed: a single linear layer mapping the input dimension to `d_model`
-        # b) self.pos_enc: positional encoding class defined above
+        self.embed = ...
+        # b) self.pos_enc: instantiated positional encoding class defined above, with appropriate `d_model`
+        self.pos_enc = ...
         # c) self.blocks: a ModuleList containing `num_layers`` transformer blocks
+        self.blocks = ...
         # d) self.edge_head: a 2 linear-layer head. The 1st layer should output a `d_ff`-dimensional vector. Remember to place an appropriate activation function between them.
-        ### YOUR CODE HERE ###
+        self.edge_head = ...
+        ### END OF TASK ###
 
     def forward(
         self, feats: torch.Tensor, coords: torch.Tensor, edge_index: torch.Tensor
@@ -1136,17 +1141,14 @@ class EdgeScoringTransformer(nn.Module):
         Returns:
             One logit per candidate edge, shape (E,).
         """
-        # 1. embed features, add the positional encoding of coords and add a dummy batch dimension
-        # 2. pass through each transformer block
-        # 3. remove the batch dimension
-        # 4. gather source/target embeddings by using the edge_index
-        # 5. concatenate [h_source, h_target] and apply the edge head to get the logits
-
-        # Hint: find out what the .squeeze()/.unsqueeze() methods do
-
-        ### YOUR CODE HERE ###
-        logits = None
-        return logits
+        h = (self.embed(feats) + self.pos_enc(coords)).unsqueeze(0)  # (1, N, d_model)
+        for block in self.blocks:
+            h = block(h)
+        h = h.squeeze(0)  # (N, d_model)
+        h_source = h[edge_index[:, 0]]
+        h_target = h[edge_index[:, 1]]
+        edge_feats = torch.cat([h_source, h_target], dim=-1)  # (E, 2 * d_model)
+        return self.edge_head(edge_feats).squeeze(-1)  # (E,)
 
 # %% tags=["solution"]
 class EdgeScoringTransformer(nn.Module):
@@ -1195,12 +1197,13 @@ class EdgeScoringTransformer(nn.Module):
 # %%
 # Quick shape check on one frame pair
 _model = EdgeScoringTransformer().to(device)
+assert sum(p.numel() for p in _model.parameters()) == 224129, "Unexpected number of parameters in the model. Please re-visit your implementation!"
 _ex = dataset[0]
 _logits = _model(_ex["feats"].to(device), _ex["coords"].to(device), _ex["edge_index"].to(device))
 assert _logits.shape == (_ex["edge_index"].shape[0],), (
     f"Expected shape ({_ex['edge_index'].shape[0]},), got {tuple(_logits.shape)}"
 )
-print("EdgeScoringTransformer forward pass works!")
+print("EdgeScoringTransformer seems to be implemented correctly!")
 del _model, _ex, _logits
 
 # %% [markdown]

@@ -24,7 +24,7 @@ Places where you are expected to write code are marked with
 # END OF TASK
 ```
 
-This notebook was originally written by Albert Dominguez Mantes for the 2026 edition of the course.
+This notebook was originally written by Albert Dominguez Mantes for the 2026 edition of the course with many inputs from Anna Foix-Romero, Eduardo Hirata-Miyasaki, Jordão Bragantini, Teun Huijben and Federico Carrara.
 """
 
 # %%
@@ -289,7 +289,7 @@ Y = self_attn(X)
 assert Y.shape == X.shape, f"Output shape should be {X.shape}, got {Y.shape}"
 print(f"Input shape:  {X.shape}")
 print(f"Output shape: {Y.shape}")
-print("Self-attention layer works correctly!")
+print("Self-attention layer seems to be implemented correctly!")
 
 # %% [markdown]
 """
@@ -414,7 +414,7 @@ Here we'll implement the sinusoidal version, which has the advantage of being pa
 Implement Sinusoidal Positional Encoding
 </div>
 
-Implement the function `sinusoidal_positional_encoding(max_len, d_model)` so that it returns a tensor of shape `(max_len, d_model)` containing the positional encodings.
+Implement the function `sinusoidal_positional_encoding(N, D)` so that it returns a tensor of shape `(N, D)` containing the positional encodings.
 
 Hint: the term $\frac{1}{10000^{2i/d_{model}}}$ can be computed more stably as $\exp\left(-\frac{2i}{d_{model}} \ln(10000)\right)$.
 """
@@ -422,24 +422,24 @@ Hint: the term $\frac{1}{10000^{2i/d_{model}}}$ can be computed more stably as $
 
 # %% tags=["task"]
 def sinusoidal_positional_encoding(
-    max_len: int, d_model: int
+    N: int, D: int
 ) -> torch.Tensor:
     """Compute sinusoidal positional encodings.
 
     Args:
-        max_len: Maximum sequence length.
-        d_model: Embedding dimension (must be even).
+        N (int): Sequence length / number of tokens.
+        D (int): Embedding dimension (must be even).
 
     Returns:
-        torch.Tensor: Positional encoding tensor of shape (max_len, d_model).
+        torch.Tensor: Positional encoding tensor of shape (N, d_model).
     """
-    assert d_model % 2 == 0, "d_model must be even for sinusoidal positional encoding"
+    assert D % 2 == 0, "d_model must be even for sinusoidal positional encoding"
 
-    pe = torch.zeros(max_len, d_model)
-    position = torch.arange(0, max_len).unsqueeze(1).float()  # (max_len, 1)
+    pe = torch.zeros(N, D)
+    position = torch.arange(0, N).unsqueeze(1).float()  # (N, 1)
 
     # TASK: compute the positional encoding
-    # 1. Compute the "div_term": exp(-i/d_model * -2*ln(10000)) for i = 0, 1, ..., d_model/2 - 1
+    # 1. Compute the "div_term": exp(-i/D * -2*ln(10000)) for i = 0, 1, ..., D/2 - 1
     # 2. Fill even indices (pe[:, 0::2]) with sin(position * div_term)
     # 3. Fill odd indices (pe[:, 1::2]) with cos(position * div_term)
     # END OF TASK
@@ -449,25 +449,25 @@ def sinusoidal_positional_encoding(
 
 # %% tags=["solution"]
 def sinusoidal_positional_encoding(
-    max_len: int, d_model: int
+    N: int, D: int
 ) -> torch.Tensor:
     """Compute sinusoidal positional encodings.
 
     Args:
-        max_len: Maximum sequence length.
-        d_model: Embedding dimension (must be even).
+        N: Maximum sequence length.
+        D: Embedding dimension (must be even).
 
     Returns:
-        torch.Tensor: Positional encoding tensor of shape (max_len, d_model).
+        torch.Tensor: Positional encoding tensor of shape (N, d_model).
     """
-    assert d_model % 2 == 0, "d_model must be even for sinusoidal positional encoding"
+    assert D % 2 == 0, "d_model must be even for sinusoidal positional encoding"
 
-    pe = torch.zeros(max_len, d_model)
-    position = torch.arange(0, max_len).unsqueeze(1).float()  # (max_len, 1)
+    pe = torch.zeros(N, D)
+    position = torch.arange(0, N).unsqueeze(1).float()  # (N, 1)
 
     div_term = torch.exp(
-        torch.arange(0, d_model//2, 1).float() * (-2*np.log(10000.0) / d_model)
-    )  # (d_model / 2,)
+        torch.arange(0, D//2, 1).float() * (-2*np.log(10000.0) / D)
+    )  # (D / 2,)
     pe[:, 0::2] = torch.sin(position * div_term)
     pe[:, 1::2] = torch.cos(position * div_term)
 
@@ -475,7 +475,7 @@ def sinusoidal_positional_encoding(
 
 
 # %%
-pe = sinusoidal_positional_encoding(max_len=N, d_model=D)
+pe = sinusoidal_positional_encoding(N=N, D=D)
 assert pe.shape == (N, D), f"Shape should be ({N}, {D}), got {pe.shape}"
 
 expected_pe = torch.Tensor(
@@ -502,7 +502,7 @@ Let's visualize the positional encoding. Each row is a different absolute positi
 
 # %%
 # Visualize with a larger sequence for a clearer picture
-pe_vis = sinusoidal_positional_encoding(max_len=64, d_model=32)
+pe_vis = sinusoidal_positional_encoding(N=64, D=32)
 
 fig, ax = plt.subplots(figsize=(8, 4))
 im = ax.imshow(pe_vis.numpy(), cmap="RdBu", aspect="auto")
@@ -532,7 +532,7 @@ Now let's repeat the permutation experiment from Task 1.3, but this time we add 
 
 
 # %% tags=["task"]
-pe = sinusoidal_positional_encoding(max_len=N, d_model=D)
+pe = sinusoidal_positional_encoding(N=N, D=D)
 
 # TASK: show that positional embeddings break permutation equivariance
 # 1. Add positional encoding to X
@@ -554,7 +554,7 @@ Y_pe_perm = None
 
 
 # %% tags=["solution"]
-pe = sinusoidal_positional_encoding(max_len=N, d_model=D)
+pe = sinusoidal_positional_encoding(N=N, D=D)
 
 # 1. Add positional encoding to X
 X_pe = X + pe.unsqueeze(0)  # broadcast PE across batch
@@ -610,7 +610,8 @@ Now that we understand the core component of a transformer, self-attention, let'
 </div>
 
 In equation form:
-$$x' = x + \text{MHA}(\text{LN}(x))$$
+$$x_{\text{norm}} = \text{LN}(x)$$
+$$x' = x + \text{MHA}(x_{\text{norm}}, x_{\text{norm}}, x_{\text{norm}})$$
 $$\text{output} = x' + \text{FFN}(\text{LN}(x'))$$
 
 _Multi-head_ attention is a simple extension of self-attention: instead of computing one set of $Q$, $K$, $V$ projections, we compute $h$ different sets (called "heads"), run attention independently on each, concatenate the results, and project back to the original dimension. With this setting, different heads may learn to attend to different types of relationships. Virtually all transformer-based models use multi-head attention, so in general you should always use it! 
@@ -624,7 +625,7 @@ Build a Transformer Encoder Block
 </div>
 
 Implement the `TransformerBlock` module following the architecture described above. Use:
-- [`nn.MultiheadAttention`](https://pytorch.org/docs/stable/generated/torch.nn.MultiheadAttention.html) for the multi-head attention. Note that this module expects input of shape `(N, B, D)` by default (sequence first), but do set `batch_first=True` to use `(B, N, D)`.
+- [`nn.MultiheadAttention`] for the multi-head attention. Note that this module expects input of shape `(N, B, D)` by default (sequence first), but do set `batch_first=True` when instantiating it to use `(B, N, D)`. Its `forward` method expects 3 inputs, which should all be the normalized version of X for self-attention. It outputs a tuple of two values, out of which you should only pick one.
 - [`nn.LayerNorm`](https://pytorch.org/docs/stable/generated/torch.nn.LayerNorm.html) for layer normalization.
 - Two `nn.Linear` layers with a `nn.GELU` activation for the feed-forward network. The hidden dimension of the FFN is typically 4x larger than that the token embedding dimension.
 """
@@ -644,8 +645,12 @@ class TransformerBlock(nn.Module):
 
         # TASK: define the layers of the transformer block
         # - Two LayerNorm layers
-        # - One MultiheadAttention layer (set batch_first=True when instantiating it)
-        # - FFN: Linear(d_model, d_ff) -> GELU -> Linear(d_ff, d_model)
+        self.ln1 = ... # First LayerNorm
+        self.mha = ... # Multi-head attention layer (remember to set batch_first=True)
+        self.ln2 = ... # Second LayerNorm
+        self.ffn = nn.Sequential(
+            ...
+        ) # feed-forward network
         # END OF TASK
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
@@ -658,6 +663,8 @@ class TransformerBlock(nn.Module):
             Output tensor, shape (B, N, D)
         """
         # TASK: implement the forward pass according to the equation above
+        # Hint: when calling the forward pass of MHA, pass the same three
+        # inputs, i.e. self.mha(x_norm, x_norm, x_norm)
         output = None
         # END OF TASK
         return output
@@ -708,10 +715,12 @@ class TransformerBlock(nn.Module):
 block = TransformerBlock(d_model=D, num_heads=2, d_ff=32)
 Y_block = block(X)
 assert Y_block.shape == X.shape, f"Output shape should be {X.shape}, got {Y_block.shape}"
+assert sum(p.numel() for p in block.parameters()) == 872, f"Unexpected number of parameters. Please re-check your implementation!"
+
 print(f"Input shape:  {X.shape}")
 print(f"Output shape: {Y_block.shape}")
 print(f"Parameters:   {sum(p.numel() for p in block.parameters()):,}")
-print("Transformer block works correctly!")
+print("Transformer block seems to be implemented correctly!")
 
 # %% [markdown]
 """
@@ -739,7 +748,7 @@ As this is a sequence classification task, we will need to produce a single outp
 """
 
 # %%
-SEQ_LEN = 10     # length of each sequence
+N_TOKENS = 10     # length of each sequence
 VOCAB_SIZE = 100  # number in the sequence will be in the interval [0, VOCAB_SIZE)
 
 
@@ -786,7 +795,7 @@ def generate_sorted_detection_data(
 
 
 # Sanity check
-sample_in, sample_tgt = generate_sorted_detection_data(6, SEQ_LEN, VOCAB_SIZE)
+sample_in, sample_tgt = generate_sorted_detection_data(6, N_TOKENS, VOCAB_SIZE)
 for i in range(6):
     label = "sorted" if sample_tgt[i].item() == 1 else "not sorted"
     print(f"{sample_in[i].tolist()}  -> {label}")
@@ -824,7 +833,7 @@ class SequenceClassifier(nn.Module):
     def __init__(
         self,
         vocab_size: int,
-        seq_len: int,
+        n_tokens: int,
         d_model: int,
         num_heads: int,
         num_layers: int,
@@ -836,7 +845,7 @@ class SequenceClassifier(nn.Module):
 
         Args:
             vocab_size: Number of possible integer values.
-            seq_len: Length of input sequences.
+            n_tokens: Length of input sequences.
             d_model: Embedding dimension.
             num_heads: Number of attention heads per block.
             num_layers: Number of transformer blocks.
@@ -847,7 +856,7 @@ class SequenceClassifier(nn.Module):
         super().__init__()
         self.use_pe = use_pe
         if self.use_pe:
-            pe = sinusoidal_positional_encoding(seq_len, d_model)
+            pe = sinusoidal_positional_encoding(n_tokens, d_model)
             # the following tells Torch that this is not a learnable parameter, but it should be
             # saved with the model and moved to the appropriate device with .to() calls
             # note that this is accessible anywhere in the class as self.pe
@@ -863,7 +872,7 @@ class SequenceClassifier(nn.Module):
         """Forward pass.
 
         Args:
-            x: Integer input tensor, shape (B, seq_len)
+            x: Integer input tensor, shape (B, N)
 
         Returns:
             Logits tensor, shape (B, num_classes).
@@ -884,7 +893,7 @@ class SequenceClassifier(nn.Module):
     def __init__(
         self,
         vocab_size: int,
-        seq_len: int,
+        n_tokens: int,
         d_model: int,
         num_heads: int,
         num_layers: int,
@@ -896,7 +905,7 @@ class SequenceClassifier(nn.Module):
 
         Args:
             vocab_size: Number of possible integer values.
-            seq_len: Length of input sequences.
+            n_tokens: Length of input sequences.
             d_model: Embedding dimension.
             num_heads: Number of attention heads per block.
             num_layers: Number of transformer blocks.
@@ -907,7 +916,7 @@ class SequenceClassifier(nn.Module):
         super().__init__()
         self.use_pe = use_pe
         if self.use_pe:
-            pe = sinusoidal_positional_encoding(seq_len, d_model)
+            pe = sinusoidal_positional_encoding(n_tokens, d_model)
             # the following tells Torch that this is not a learnable parameter, but it should be
             # saved with the model and moved to the appropriate device with .to() calls
             # note that this is accessible anywhere in the class as self.pe, like a regular attribute
@@ -922,7 +931,7 @@ class SequenceClassifier(nn.Module):
         """Forward pass.
 
         Args:
-            x: Integer input tensor, shape (B, seq_len)
+            x: Integer input tensor, shape (B, n_tokens)
 
         Returns:
             Logits tensor, shape (B, num_classes).
@@ -940,17 +949,19 @@ class SequenceClassifier(nn.Module):
 # Verify the model works
 model = SequenceClassifier(
     vocab_size=VOCAB_SIZE,
-    seq_len=SEQ_LEN,
+    n_tokens=N_TOKENS,
     d_model=64,
     num_heads=4,
     num_layers=2,
     d_ff=128,
 )
-dummy_input = torch.randint(0, VOCAB_SIZE, (2, SEQ_LEN))
+dummy_input = torch.randint(0, VOCAB_SIZE, (2, N_TOKENS))
 dummy_output = model(dummy_input)
 assert dummy_output.shape == (2, 2), (
     f"Output shape should be (2, 2), got {dummy_output.shape}"
 )
+assert sum(p.numel() for p in model.parameters()) == 73474, f"Unexpected number of parameters. Please re-check your implementation!"
+
 print(f"Model parameters: {sum(p.numel() for p in model.parameters()):,}")
 print("SequenceClassifier works correctly!")
 del model  # clean up the temporary model
@@ -970,12 +981,11 @@ NUM_HEADS = 4
 NUM_LAYERS = 2
 D_FF = 128
 BATCH_SIZE = 128
-NUM_EPOCHS = 15
 LR = 3e-4
 
 # Generate data
-train_inputs, train_targets = generate_sorted_detection_data(20000, SEQ_LEN, VOCAB_SIZE)
-val_inputs, val_targets = generate_sorted_detection_data(4000, SEQ_LEN, VOCAB_SIZE)
+train_inputs, train_targets = generate_sorted_detection_data(20000, N_TOKENS, VOCAB_SIZE)
+val_inputs, val_targets = generate_sorted_detection_data(4000, N_TOKENS, VOCAB_SIZE)
 
 train_ds = TensorDataset(train_inputs, train_targets) # constructs a torch Dataset object from input and target tensors
 val_ds = TensorDataset(val_inputs, val_targets)
@@ -1077,12 +1087,14 @@ def train_model(
 
 
 # %%
+NUM_EPOCHS = 15
+
 fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(10, 4))
 history = {}
 
 print("Training model without positional encoding...")
 model_without_pe = SequenceClassifier(
-    vocab_size=VOCAB_SIZE, seq_len=SEQ_LEN,
+    vocab_size=VOCAB_SIZE, n_tokens=N_TOKENS,
     d_model=D_MODEL, num_heads=NUM_HEADS, num_layers=NUM_LAYERS, d_ff=D_FF,
     use_pe=False,
 ).to(device)
@@ -1094,7 +1106,7 @@ print(f"  Final validation accuracy: {accs_without_pe[-1] * 100:.1f}%")
 
 print("Training model with positional encoding...")
 model_with_pe = SequenceClassifier(
-    vocab_size=VOCAB_SIZE, seq_len=SEQ_LEN,
+    vocab_size=VOCAB_SIZE, n_tokens=N_TOKENS,
     d_model=D_MODEL, num_heads=NUM_HEADS, num_layers=NUM_LAYERS, d_ff=D_FF,
     use_pe=True,
 ).to(device)
@@ -1109,7 +1121,7 @@ plt.close(fig)
 """
 <div class="alert alert-block alert-warning">
     <b>Question:</b>
-    Increase the number of training epochs to e.g. 100. What do you observe in the curves of the model without positional encoding? What is a possible explanation for this behaviour?
+    Increase the number of training epochs to e.g. 50. What do you observe in the curves of the model without positional encoding? What is a possible explanation for this behaviour?
 </div>
 """
 
@@ -1117,7 +1129,7 @@ plt.close(fig)
 """
 <div class="alert alert-block alert-warning">
     <b>Answer:</b>
-    The model without PEs shows the training loss converging to a small value similar to the one with PEs, but the validation accuracy remains around random chance (50%). The model is theoretically unable to discriminate between sorted and unsorted sequences, but it has enough capacity to simply _memorize_ the training data sequences (_i.e._ it is overfitting). 
+    The model without PEs shows the training loss converging to a small value similar to the one with PEs, but the validation accuracy remains around random chance (50%). The model is theoretically unable to discriminate between sorted and unsorted sequences, but it has enough capacity to simply memorize the training data sequences (i.e. it is overfitting). 
 </div>
 """
 # %% [markdown]
