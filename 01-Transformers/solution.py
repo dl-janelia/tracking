@@ -401,7 +401,10 @@ The original transformer paper proposed sinusoidal positional encodings, defined
 $$PE_{(pos, 2i)} = \sin\left(\frac{pos}{10000^{2i/d_{model}}}\right)$$
 $$PE_{(pos, 2i+1)} = \cos\left(\frac{pos}{10000^{2i/d_{model}}}\right)$$
 
-where $pos$ is the position in the sequence and $i$ is the dimension index. Each position gets a unique encoding vector, and the sinusoidal pattern allows the model to learn to attend to relative positions. This positional encoding vector is then added to the input token embedding (i.e. $X'=X+PE(X)$), adding the notion of position to it.
+where $pos$ is the position in the sequence and $i$ is the dimension index.
+Therefore, $2i$ corresponds to entries at even indexes and $2i+1$ correspond to odd ones along the embedding dimension $d$.
+Each position gets a unique encoding vector, and the sinusoidal pattern allows the model to learn to attend to relative positions. 
+This positional encoding vector is then added to the input token embedding (i.e. $X'=X+PE(X)$), adding the notion of position to it.
 
 There are also learned positional embeddings (a simple `nn.Embedding` layer indexed by position), which are used in many architectures. Another variant becoming the standard is Rotary Positional Embeddings (RoPE), which in a nutshell encodes relative position of tokens as angles between their embeddings.
 
@@ -415,7 +418,7 @@ Implement Sinusoidal Positional Encoding
 
 Implement the function `sinusoidal_positional_encoding(max_len, d_model)` so that it returns a tensor of shape `(max_len, d_model)` containing the positional encodings.
 
-Hint: the term $10000^{2i/d_{model}}$ can be computed more stably as $\exp\left(-\frac{2i}{d_{model}} \ln(10000)\right)$.
+Hint: the term $\frac{1}{10000^{2i/d_{model}}} = ({10000^{2i/d_{model}}})^{-1}$ can be computed more stably as $\exp\left(-\frac{2i}{d_{model}} \ln(10000)\right)$.
 """
 
 
