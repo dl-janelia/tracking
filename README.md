@@ -1,4 +1,4 @@
-# Exercise 8 - Tracking
+# Exercise 8 - Tracking and transformers
 
 This exercise was created by Benjamin Gallusser and Albert Dominguez Mantes,
 updated for 2024/2025 by Caroline Malin-Mayor, and extended for 2026 by
@@ -22,11 +22,11 @@ Albert Dominguez Mantes with a transformers-from-scratch part.
     - `01-Transformers/exercise.ipynb`: transformers from scratch on a toy sequence task.
     - `02-Tracking/exercise.ipynb`: ILP-based tracking with motile, with a learned transformer edge scorer and a comparison against pretrained `trackastra`.
 
-## Overview: Tracking by detection with an integer linear program (ILP)
+## Overview
 
 ### Introduction to transformers for 1D sequences
 
-In this part, you will build the core components of a transformer from scratch using `torch`, understand their fundamental properties, and apply them to a simple sequence task.
+In this part, you will build the core components of a transformer from scratch using `torch`, understand their fundamental properties, and apply them to a simple sequence classification task.
 
 ### Tracking by detection with an integer linear program (ILP)
 

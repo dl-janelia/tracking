@@ -60,22 +60,13 @@
 
 # %% [markdown]
 # ### Set up NoMachine with port forwarding
-# 1. From VSCode connected to your remote machine, forward a port (e.g. `4000`) to your local machine.
-#     - Open you command palette in VSCode (usually CMD-Shift-P) and type "forward a port"
-#     - Then type in the desired port number `4000` and hit enter
-#     - From the "PORTS" tab, you should see port 4000 listed as a forwarded port
-# 2. Download and install [NoMachine](https://www.nomachine.com/download) on your local machine if it is not already installed.
-# 3. Enter the server address in host, set the port to match the port you forwarded in step 1 and protocol as NX. Feel free to enter any name you would like.
-# 4. Click on the configuration tab on the left.
-# 5. Choose "Use key-based authentication with a key you provide" and hit the "Modify" button.
-# 6. Provide the path to your ssh key .pem file.
-# 7. Finally hit connect (or Add).
-# 8. If you are asked to create a desktop, click yes.
-# 9. You should then see a time and date, hitting enter should let you enter your username and access the desktop. The first login may be slow.
-# 10. Still in NoMachine, open a shell window. Hit the application button in the bottom left corner and launch "Konsole"
-# 11. From the shell, run `echo $DISPLAY`. Copy the output. It should be something like `:1005`
-# 12. Return to your notebook in VSCode, and proceed with the exercise.
-# 13. Modify the cell below to input the DISPLAY port you retrieved in step 11
+# 1. Follow the instructions of the [corresponding course Wiki page](https://github.com/dl-janelia/DL-Janelia-2026/wiki/NoMachine-Setup-Instructions). 
+# 2. In the NoMachine desktop, open a shell window. Hit the application button in the bottom left corner and launch "Konsole"
+# 3. From the "Konsole" shell, run the command `echo $DISPLAY` and copy the output. It should be something like `:1005`
+# 4. Modify the cell below to input the DISPLAY port you retrieved in step 11 and continue with the exercise.
+
+# We recommend putting NoMachine's window in your big monitor if possible, since you will be visualizing napari windows with multiple layers and a lineage tree widget, which may be harder to parse on a small screen.
+
 
 # %%
 import os
