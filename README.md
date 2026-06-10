@@ -1,4 +1,4 @@
-# Exercise 8 - Transformers and tracking
+# Exercise 8 - Tracking and transformers
 
 This exercise was created by Benjamin Gallusser and Albert Dominguez Mantes,
 updated for 2024/2025 by Caroline Malin-Mayor, and extended for 2026 by
